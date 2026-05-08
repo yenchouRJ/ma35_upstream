@@ -9,21 +9,31 @@
 #include <linux/of_graph.h>
 
 #include "vs_crtc.h"
+#include "vs_crtc_regs.h"
 #include "vs_dc.h"
 #include "vs_dc_top_regs.h"
 #include "vs_drm.h"
 #include "vs_hwdb.h"
 
-static const struct regmap_config vs_dc_regmap_cfg = {
-	.reg_bits = 32,
-	.val_bits = 32,
-	.reg_stride = sizeof(u32),
-	/* VSDC_OVL_CONFIG_EX(1) */
+static const struct vs_dc_info vs_dc8000_info = {
+	.family = VS_DC_FAMILY_DC8000,
+	.has_chip_id = true,
+	.has_config_ex = true,
 	.max_register = 0x2544,
 };
 
+static const struct vs_dc_info vs_dcultra_lite_info = {
+	.family = VS_DC_FAMILY_DCULTRA_LITE,
+	.display_count = 1,
+	.has_chip_id = false,
+	.has_config_ex = false,
+	.max_register = 0x2000,
+	.formats = &vs_formats_no_yuv444,
+};
+
 static const struct of_device_id vs_dc_driver_dt_match[] = {
-	{ .compatible = "verisilicon,dc" },
+	{ .compatible = "verisilicon,dc", .data = &vs_dc8000_info },
+	{ .compatible = "nuvoton,ma35d1-dcu", .data = &vs_dcultra_lite_info },
 	{},
 };
 MODULE_DEVICE_TABLE(of, vs_dc_driver_dt_match);
@@ -32,6 +42,13 @@ static irqreturn_t vs_dc_irq_handler(int irq, void *private)
 {
 	struct vs_dc *dc = private;
 	u32 irqs;
+
+	if (dc->info->family == VS_DC_FAMILY_DCULTRA_LITE) {
+		regmap_read(dc->regs, VSDC_DISP_IRQ_STA, &irqs);
+		if (irqs & BIT(0))
+			vs_drm_handle_irq(dc, VSDC_TOP_IRQ_VSYNC(0));
+		return IRQ_HANDLED;
+	}
 
 	regmap_read(dc->regs, VSDC_TOP_IRQ_ACK, &irqs);
 
@@ -43,8 +60,10 @@ static irqreturn_t vs_dc_irq_handler(int irq, void *private)
 static int vs_dc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	const struct vs_dc_info *info;
 	struct vs_dc *dc;
 	void __iomem *regs;
+	struct regmap_config regmap_cfg;
 	unsigned int port_count, i;
 	/* pix%u */
 	char pixclk_name[14];
@@ -54,6 +73,10 @@ static int vs_dc_probe(struct platform_device *pdev)
 		dev_err(dev, "can't find DC devices\n");
 		return -ENODEV;
 	}
+
+	info = of_device_get_match_data(dev);
+	if (!info)
+		return -ENODEV;
 
 	port_count = of_graph_get_port_count(dev->of_node);
 	if (!port_count) {
@@ -75,15 +98,31 @@ static int vs_dc_probe(struct platform_device *pdev)
 	if (!dc)
 		return -ENOMEM;
 
-	dc->rsts[0].id = "core";
-	dc->rsts[1].id = "axi";
-	dc->rsts[2].id = "ahb";
+	dc->info = info;
 
-	ret = devm_reset_control_bulk_get_optional_shared(dev, VSDC_RESET_COUNT,
-							  dc->rsts);
-	if (ret) {
-		dev_err(dev, "can't get reset lines\n");
-		return ret;
+	if (info->family == VS_DC_FAMILY_DC8000) {
+		dc->rsts[0].id = "core";
+		dc->rsts[1].id = "axi";
+		dc->rsts[2].id = "ahb";
+
+		ret = devm_reset_control_bulk_get_optional_shared(dev,
+				VSDC_RESET_COUNT, dc->rsts);
+		if (ret) {
+			dev_err(dev, "can't get reset lines\n");
+			return ret;
+		}
+
+		dc->axi_clk = devm_clk_get_enabled(dev, "axi");
+		if (IS_ERR(dc->axi_clk)) {
+			dev_err(dev, "can't get axi clock\n");
+			return PTR_ERR(dc->axi_clk);
+		}
+
+		dc->ahb_clk = devm_clk_get_enabled(dev, "ahb");
+		if (IS_ERR(dc->ahb_clk)) {
+			dev_err(dev, "can't get ahb clock\n");
+			return PTR_ERR(dc->ahb_clk);
+		}
 	}
 
 	dc->core_clk = devm_clk_get_enabled(dev, "core");
@@ -92,28 +131,18 @@ static int vs_dc_probe(struct platform_device *pdev)
 		return PTR_ERR(dc->core_clk);
 	}
 
-	dc->axi_clk = devm_clk_get_enabled(dev, "axi");
-	if (IS_ERR(dc->axi_clk)) {
-		dev_err(dev, "can't get axi clock\n");
-		return PTR_ERR(dc->axi_clk);
-	}
-
-	dc->ahb_clk = devm_clk_get_enabled(dev, "ahb");
-	if (IS_ERR(dc->ahb_clk)) {
-		dev_err(dev, "can't get ahb clock\n");
-		return PTR_ERR(dc->ahb_clk);
-	}
-
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
 		dev_err(dev, "can't get irq\n");
 		return irq;
 	}
 
-	ret = reset_control_bulk_deassert(VSDC_RESET_COUNT, dc->rsts);
-	if (ret) {
-		dev_err(dev, "can't deassert reset lines\n");
-		return ret;
+	if (info->family == VS_DC_FAMILY_DC8000) {
+		ret = reset_control_bulk_deassert(VSDC_RESET_COUNT, dc->rsts);
+		if (ret) {
+			dev_err(dev, "can't deassert reset lines\n");
+			return ret;
+		}
 	}
 
 	regs = devm_platform_ioremap_resource(pdev, 0);
@@ -123,23 +152,36 @@ static int vs_dc_probe(struct platform_device *pdev)
 		goto err_rst_assert;
 	}
 
-	dc->regs = devm_regmap_init_mmio(dev, regs, &vs_dc_regmap_cfg);
+	memset(&regmap_cfg, 0, sizeof(regmap_cfg));
+	regmap_cfg.reg_bits = 32;
+	regmap_cfg.val_bits = 32;
+	regmap_cfg.reg_stride = sizeof(u32);
+	regmap_cfg.max_register = info->max_register;
+
+	dc->regs = devm_regmap_init_mmio(dev, regs, &regmap_cfg);
 	if (IS_ERR(dc->regs)) {
 		ret = PTR_ERR(dc->regs);
 		goto err_rst_assert;
 	}
 
-	ret = vs_fill_chip_identity(dc->regs, &dc->identity);
-	if (ret)
-		goto err_rst_assert;
+	if (info->has_chip_id) {
+		ret = vs_fill_chip_identity(dc->regs, &dc->identity);
+		if (ret)
+			goto err_rst_assert;
 
-	dev_info(dev, "Found DC%x rev %x customer %x\n", dc->identity.model,
-		 dc->identity.revision, dc->identity.customer_id);
+		dev_info(dev, "Found DC%x rev %x customer %x\n",
+			 dc->identity.model, dc->identity.revision,
+			 dc->identity.customer_id);
 
-	if (port_count > dc->identity.display_count) {
-		dev_err(dev, "too many downstream ports than HW capability\n");
-		ret = -EINVAL;
-		goto err_rst_assert;
+		if (port_count > dc->identity.display_count) {
+			dev_err(dev, "too many downstream ports than HW capability\n");
+			ret = -EINVAL;
+			goto err_rst_assert;
+		}
+	} else {
+		/* Fill identity from platform data */
+		dc->identity.display_count = info->display_count;
+		dc->identity.formats = info->formats;
 	}
 
 	for (i = 0; i < dc->identity.display_count; i++) {
@@ -168,7 +210,8 @@ static int vs_dc_probe(struct platform_device *pdev)
 	return 0;
 
 err_rst_assert:
-	reset_control_bulk_assert(VSDC_RESET_COUNT, dc->rsts);
+	if (info->family == VS_DC_FAMILY_DC8000)
+		reset_control_bulk_assert(VSDC_RESET_COUNT, dc->rsts);
 	return ret;
 }
 
@@ -180,7 +223,8 @@ static void vs_dc_remove(struct platform_device *pdev)
 
 	dev_set_drvdata(&pdev->dev, NULL);
 
-	reset_control_bulk_assert(VSDC_RESET_COUNT, dc->rsts);
+	if (dc->info->family == VS_DC_FAMILY_DC8000)
+		reset_control_bulk_assert(VSDC_RESET_COUNT, dc->rsts);
 }
 
 static void vs_dc_shutdown(struct platform_device *pdev)
