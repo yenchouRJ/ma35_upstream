@@ -1,0 +1,74 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Buildroot <buildroot@buildroot.org>
+Date: Mon, 04 May 2026 00:00:00 +0000
+Subject: [PATCH] networking/tc: guard CBQ code with #ifdef TCA_CBQ_MAX
+
+The CBQ qdisc was removed from the Linux kernel in v6.9, taking with it
+all TCA_CBQ_* constants and tc_cbq_* structs from linux/pkt_sched.h.
+Building against kernel headers >= 6.9 therefore fails.
+
+Guard cbq_print_opt() and its two call sites with #ifdef TCA_CBQ_MAX so
+the code compiles cleanly whether or not the kernel exposes CBQ support.
+
+The dispatch tables are simplified from index_in_strings() to strcmp()
+to make the conditional exclusion of the CBQ branch straightforward.
+
+Signed-off-by: Buildroot <buildroot@buildroot.org>
+---
+ networking/tc.c | 19 ++++++++++++-------
+ 1 file changed, 12 insertions(+), 7 deletions(-)
+
+diff --git a/networking/tc.c b/networking/tc.c
+--- a/networking/tc.c
++++ b/networking/tc.c
+@@ -231,6 +231,7 @@
+ 	return 0;
+ }
+ #endif
++#ifdef TCA_CBQ_MAX
+ static int cbq_print_opt(struct rtattr *opt)
+ {
+ 	struct rtattr *tb[TCA_CBQ_MAX+1];
+@@ -322,6 +323,7 @@
+  done:
+ 	return 0;
+ }
++#endif /* TCA_CBQ_MAX */
+ 
+ static FAST_FUNC int print_qdisc(
+ 		const struct sockaddr_nl *who UNUSED_PARAM,
+@@ -368,12 +370,12 @@
+ 	if (msg->tcm_info != 1)
+ 		printf("refcnt %d ", msg->tcm_info);
+ 	if (tb[TCA_OPTIONS]) {
+-		static const char _q_[] ALIGN1 = "pfifo_fast\0""cbq\0";
+-		int qqq = index_in_strings(_q_, name);
+-		if (qqq == 0) { /* pfifo_fast aka prio */
++		if (strcmp(name, "pfifo_fast") == 0) {
+ 			prio_print_opt(tb[TCA_OPTIONS]);
+-		} else if (qqq == 1) { /* class based queuing */
++#ifdef TCA_CBQ_MAX
++		} else if (strcmp(name, "cbq") == 0) {
+ 			cbq_print_opt(tb[TCA_OPTIONS]);
++#endif
+ 		} else {
+ 			/* don't know how to print options for this qdisc */
+ 			printf("(options for %s)", name);
+@@ -438,13 +440,13 @@
+ 		printf("leaf %x ", msg->tcm_info >> 16);
+ 	/* Do that get_qdisc_kind(RTA_DATA(tb[TCA_KIND])).  */
+ 	if (tb[TCA_OPTIONS]) {
+-		static const char _q_[] ALIGN1 = "pfifo_fast\0""cbq\0";
+-		int qqq = index_in_strings(_q_, name);
+-		if (qqq == 0) { /* pfifo_fast aka prio */
++		if (strcmp(name, "pfifo_fast") == 0) {
+ 			/* nothing. */ /*prio_print_opt(tb[TCA_OPTIONS]);*/
+-		} else if (qqq == 1) { /* class based queuing */
++#ifdef TCA_CBQ_MAX
++		} else if (strcmp(name, "cbq") == 0) {
+ 			/* cbq_print_copt() is identical to cbq_print_opt(). */
+ 			cbq_print_opt(tb[TCA_OPTIONS]);
++#endif
+ 		} else {
+ 			/* don't know how to print options for this class */
+ 			printf("(options for %s)", name);
