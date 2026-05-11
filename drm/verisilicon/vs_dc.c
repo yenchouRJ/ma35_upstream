@@ -15,11 +15,25 @@
 #include "vs_drm.h"
 #include "vs_hwdb.h"
 
+static const struct regmap_config vs_dc8000_regmap_cfg = {
+	.reg_bits = 32,
+	.val_bits = 32,
+	.reg_stride = sizeof(u32),
+	.max_register = 0x2544,
+};
+
+static const struct regmap_config vs_dcultra_lite_regmap_cfg = {
+	.reg_bits = 32,
+	.val_bits = 32,
+	.reg_stride = sizeof(u32),
+	.max_register = 0x2000,
+};
+
 static const struct vs_dc_info vs_dc8000_info = {
 	.family = VS_DC_FAMILY_DC8000,
 	.has_chip_id = true,
 	.has_config_ex = true,
-	.max_register = 0x2544,
+	.regmap_cfg = &vs_dc8000_regmap_cfg,
 };
 
 static const struct vs_dc_info vs_dcultra_lite_info = {
@@ -27,7 +41,7 @@ static const struct vs_dc_info vs_dcultra_lite_info = {
 	.display_count = 1,
 	.has_chip_id = false,
 	.has_config_ex = false,
-	.max_register = 0x2000,
+	.regmap_cfg = &vs_dcultra_lite_regmap_cfg,
 	.formats = &vs_formats_no_yuv444,
 };
 
@@ -63,7 +77,6 @@ static int vs_dc_probe(struct platform_device *pdev)
 	const struct vs_dc_info *info;
 	struct vs_dc *dc;
 	void __iomem *regs;
-	struct regmap_config regmap_cfg;
 	unsigned int port_count, i;
 	/* pix%u */
 	char pixclk_name[14];
@@ -152,13 +165,7 @@ static int vs_dc_probe(struct platform_device *pdev)
 		goto err_rst_assert;
 	}
 
-	memset(&regmap_cfg, 0, sizeof(regmap_cfg));
-	regmap_cfg.reg_bits = 32;
-	regmap_cfg.val_bits = 32;
-	regmap_cfg.reg_stride = sizeof(u32);
-	regmap_cfg.max_register = info->max_register;
-
-	dc->regs = devm_regmap_init_mmio(dev, regs, &regmap_cfg);
+	dc->regs = devm_regmap_init_mmio(dev, regs, info->regmap_cfg);
 	if (IS_ERR(dc->regs)) {
 		ret = PTR_ERR(dc->regs);
 		goto err_rst_assert;

@@ -25,7 +25,7 @@ enum vs_dc_family {
  * @display_count:	number of display outputs (0 = auto-detect from DT/HW)
  * @has_chip_id:	whether chip identity registers exist
  * @has_config_ex:	whether CONFIG_EX commit mechanism exists
- * @max_register:	regmap max register offset
+ * @regmap_cfg:		regmap configuration for this variant
  * @formats:		supported pixel formats (NULL = auto-detect from chip ID)
  */
 struct vs_dc_info {
@@ -33,7 +33,7 @@ struct vs_dc_info {
 	u32 display_count;
 	bool has_chip_id;
 	bool has_config_ex;
-	u32 max_register;
+	const struct regmap_config *regmap_cfg;
 	const struct vs_formats *formats;
 };
 

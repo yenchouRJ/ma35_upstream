@@ -1,6 +1,6 @@
 # MA35D1 Upstream Kernel (7.1.0-rc1) Migration — Change Log
 
-Platform: Nuvoton MA35D1-SOM, Buildroot 2024.02, kernel at `../kernel7`
+Platform: Nuvoton MA35D1-SOM, Buildroot 2024.02, kernel at `../kernel`
 
 ---
 
@@ -10,9 +10,9 @@ Platform: Nuvoton MA35D1-SOM, Buildroot 2024.02, kernel at `../kernel7`
 |---|---|---|
 | `BR2_LINUX_KERNEL_MA35` | remove | Vendor-specific kernel option, not in Buildroot 2024.02 mainline |
 | `BR2_LINUX_KERNEL_CUSTOM_GIT` | `y` | Switch kernel source to local git repo |
-| `BR2_LINUX_KERNEL_CUSTOM_REPO_URL` | `/home/joeylu/Documents/upstream2026/drm/kernel7` | Path to local upstream kernel |
+| `BR2_LINUX_KERNEL_CUSTOM_REPO_URL` | `/home/joeylu/Documents/upstream2026/drm/kernel` | Path to local upstream kernel |
 | `BR2_LINUX_KERNEL_CUSTOM_REPO_VERSION` | `drm-misc-next` | Use latest commit from the repo |
-| `BR2_LINUX_KERNEL_DEFCONFIG` | `ma35d1` | Custom defconfig created in `kernel7/arch/arm64/configs/` |
+| `BR2_LINUX_KERNEL_DEFCONFIG` | `ma35d1` | Custom defconfig created in `kernel/arch/arm64/configs/` |
 | `BR2_LINUX_KERNEL_INTREE_DTS_NAME` | `nuvoton/ma35d1-som-256m` | DTS exists in upstream kernel, no change needed |
 | `BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_6_6` | `y` | "6.6.x or later" covers kernel 7.x |
 | `BR2_TARGET_ROOTFS_INITRAMFS` | `y` | Boot uses `rdinit=/sbin/init` which requires initramfs embedded in the kernel image; without this the kernel finds no `/sbin/init` and hangs waiting for a block device |
@@ -40,7 +40,7 @@ Replce board/nuvoton/ma35d1/uboot-env.txt with ramfs version.
 
 ## Kernel defconfig changes
 
-File: `kernel7/arch/arm64/configs/ma35d1_defconfig`
+File: `kernel/arch/arm64/configs/ma35d1_defconfig`
 
 | Config | Value | Reason |
 |---|---|---|

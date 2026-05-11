@@ -6,7 +6,7 @@
 - write development log under this file
 
 ## Second step
-- add overlay plane support
+- add overlay plane support (future)
 
 ## Development Log
 
