@@ -8,12 +8,13 @@ title: Verisilicon DC-series display controllers
 
 maintainers:
   - Icenowy Zheng <uwu@icenowy.me>
+  - Joey Lu <yclu4@nuvoton.com>
 
 description:
-  Verisilicon DC-series display controllers.
+  Verisilicon DC-series display controllers, including the DC8200 used
+  in SoCs like the T-HEAD TH1520, and the DCUltra Lite used in the
+  Nuvoton MA35D1.
 
-# Select any node whose compatible contains one of the known Verisilicon DC
-# or DC-derived compatible strings, including SoC-specific glue variants.
 select:
   properties:
     compatible:
@@ -30,13 +31,12 @@ properties:
     pattern: "^display@[0-9a-f]+$"
 
   compatible:
-    # Enumerated in full so the schema validator can verify any compatible
-    # string against this list, including those from child schemas.
-    contains:
-      enum:
-        - verisilicon,dc
-        - thead,th1520-dc8200
-        - nuvoton,ma35d1-dcu
+    oneOf:
+      - items:
+          - enum:
+              - thead,th1520-dc8200
+          - const: verisilicon,dc
+      - const: nuvoton,ma35d1-dcu
 
   reg:
     maxItems: 1
@@ -87,7 +87,47 @@ required:
   - clocks
   - clock-names
 
-additionalProperties: true
+allOf:
+  - if:
+      properties:
+        compatible:
+          const: nuvoton,ma35d1-dcu
+    then:
+      properties:
+        clocks:
+          items:
+            - description: Bus clock that gates register access (DCU_GATE)
+            - description: Pixel clock divider for display timing (DCUP_DIV)
+
+        clock-names:
+          items:
+            - const: core
+            - const: pix0
+
+        resets:
+          maxItems: 1
+          description:
+            Reset line for the display controller. Deasserted during probe
+            and asserted on removal if present.
+
+        reset-names:
+          items:
+            - const: core
+
+        port:
+          $ref: /schemas/graph.yaml#/properties/port
+          description:
+            Output port to the downstream display device (e.g. RGB panel).
+            The DCUltra Lite supports a single parallel RGB output.
+
+      required:
+        - port
+
+      not:
+        required:
+          - ports
+
+unevaluatedProperties: false
 
 examples:
   - |
@@ -129,4 +169,25 @@ examples:
           };
         };
       };
+    };
+
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/clock/nuvoton,ma35d1-clk.h>
+    #include <dt-bindings/reset/nuvoton,ma35d1-reset.h>
+
+    display@40260000 {
+        compatible = "nuvoton,ma35d1-dcu";
+        reg = <0x40260000 0x20000>;
+        interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH>;
+        clocks = <&clk DCU_GATE>, <&clk DCUP_DIV>;
+        clock-names = "core", "pix0";
+        resets = <&sys MA35D1_RESET_DISP>;
+        reset-names = "core";
+
+        port {
+            dpi_out: endpoint {
+                remote-endpoint = <&panel_in>;
+            };
+        };
     };

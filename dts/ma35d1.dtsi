@@ -435,12 +435,13 @@
 		};
 
 		display: display@40260000 {
-			compatible = "nuvoton,ma35d1-dcu";
+			compatible = "verisilicon,dc";
 			reg = <0x0 0x40260000 0x0 0x2000>;
 			interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk DCU_GATE>, <&clk DCUP_DIV>;
 			clock-names = "core", "pix0";
 			resets = <&sys MA35D1_RESET_DISP>;
+			reset-names = "core";
 			status = "disabled";
 		};
 	};

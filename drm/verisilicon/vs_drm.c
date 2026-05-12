@@ -27,7 +27,6 @@
 #include "vs_dc.h"
 #include "vs_dc_top_regs.h"
 #include "vs_drm.h"
-#include "vs_hwdb.h"
 
 #define DRIVER_NAME	"verisilicon"
 #define DRIVER_DESC	"Verisilicon DC-series display controller driver"
@@ -73,18 +72,12 @@ static struct drm_mode_config_helper_funcs vs_mode_config_helper_funcs = {
 	.atomic_commit_tail = drm_atomic_helper_commit_tail,
 };
 
-static void vs_mode_config_init(struct drm_device *drm, struct vs_dc *dc)
+static void vs_mode_config_init(struct drm_device *drm)
 {
 	drm->mode_config.min_width = 0;
 	drm->mode_config.min_height = 0;
-
-	if (dc->info->family == VS_DC_FAMILY_DCULTRA_LITE) {
-		drm->mode_config.max_width = 1920;
-		drm->mode_config.max_height = 1080;
-	} else {
-		drm->mode_config.max_width = 8192;
-		drm->mode_config.max_height = 8192;
-	}
+	drm->mode_config.max_width = 8192;
+	drm->mode_config.max_height = 8192;
 
 	drm->mode_config.funcs = &vs_mode_config_funcs;
 	drm->mode_config.helper_private = &vs_mode_config_helper_funcs;
@@ -133,7 +126,7 @@ int vs_drm_initialize(struct vs_dc *dc, struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	vs_mode_config_init(drm, dc);
+	vs_mode_config_init(drm);
 
 	/* Enable connectors polling */
 	drm_kms_helper_poll_init(drm);

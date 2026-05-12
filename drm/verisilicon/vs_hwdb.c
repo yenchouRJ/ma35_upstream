@@ -78,7 +78,7 @@ static const u32 vs_formats_array_with_yuv444[] = {
 	/* TODO: non-RGB formats */
 };
 
-const struct vs_formats vs_formats_no_yuv444 = {
+static const struct vs_formats vs_formats_no_yuv444 = {
 	.array = vs_formats_array_no_yuv444,
 	.num = ARRAY_SIZE(vs_formats_array_no_yuv444)
 };
@@ -96,6 +96,8 @@ static struct vs_chip_identity vs_chip_identities[] = {
 
 		.display_count = 2,
 		.formats = &vs_formats_no_yuv444,
+		.has_config_ex = true,
+		.uses_top_irq = true,
 	},
 	{
 		.model = 0x8200,
@@ -104,6 +106,8 @@ static struct vs_chip_identity vs_chip_identities[] = {
 
 		.display_count = 2,
 		.formats = &vs_formats_no_yuv444,
+		.has_config_ex = true,
+		.uses_top_irq = true,
 	},
 	{
 		.model = 0x8200,
@@ -112,6 +116,8 @@ static struct vs_chip_identity vs_chip_identities[] = {
 
 		.display_count = 2,
 		.formats = &vs_formats_with_yuv444,
+		.has_config_ex = true,
+		.uses_top_irq = true,
 	},
 	{
 		.model = 0x8200,
@@ -120,6 +126,18 @@ static struct vs_chip_identity vs_chip_identities[] = {
 
 		.display_count = 2,
 		.formats = &vs_formats_no_yuv444,
+		.has_config_ex = true,
+		.uses_top_irq = true,
+	},
+	{
+		.model = 0x0,
+		.revision = 0x5560,
+		.customer_id = 0x305,
+
+		.display_count = 1,
+		.formats = &vs_formats_no_yuv444,
+		.has_config_ex = false,
+		.uses_top_irq = false,
 	},
 };
 

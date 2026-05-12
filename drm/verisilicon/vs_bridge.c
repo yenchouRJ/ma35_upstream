@@ -22,6 +22,7 @@
 #include "vs_bridge_regs.h"
 #include "vs_crtc.h"
 #include "vs_dc.h"
+#include "vs_primary_plane_regs.h"
 
 static int vs_bridge_attach(struct drm_bridge *bridge,
 			    struct drm_encoder *encoder,
@@ -162,10 +163,10 @@ static void vs_bridge_enable_common(struct vs_crtc *crtc,
 			VSDC_DISP_PANEL_CONFIG_DE_EN |
 			VSDC_DISP_PANEL_CONFIG_DAT_EN |
 			VSDC_DISP_PANEL_CONFIG_CLK_EN);
-	regmap_set_bits(dc->regs, VSDC_DISP_PANEL_CONFIG(output),
-			VSDC_DISP_PANEL_CONFIG_RUNNING);
 
-	if (dc->info->has_config_ex) {
+	if (dc->identity.has_config_ex) {
+		regmap_set_bits(dc->regs, VSDC_DISP_PANEL_CONFIG(output),
+				VSDC_DISP_PANEL_CONFIG_RUNNING);
 		regmap_clear_bits(dc->regs, VSDC_DISP_PANEL_START,
 				  VSDC_DISP_PANEL_START_MULTI_DISP_SYNC);
 		regmap_set_bits(dc->regs, VSDC_DISP_PANEL_START,
@@ -173,6 +174,10 @@ static void vs_bridge_enable_common(struct vs_crtc *crtc,
 
 		regmap_set_bits(dc->regs, VSDC_DISP_PANEL_CONFIG_EX(crtc->id),
 				VSDC_DISP_PANEL_CONFIG_EX_COMMIT);
+	} else {
+		/* DC8000/DCUltra Lite: start DPI output via RESET bit */
+		regmap_set_bits(dc->regs, VSDC_FB_CONFIG(output),
+				VSDC_FB_CONFIG_RESET);
 	}
 }
 
@@ -231,16 +236,19 @@ static void vs_bridge_atomic_disable(struct drm_bridge *bridge,
 	struct vs_dc *dc = crtc->dc;
 	unsigned int output = crtc->id;
 
-	regmap_clear_bits(dc->regs, VSDC_DISP_PANEL_CONFIG(output),
-			  VSDC_DISP_PANEL_CONFIG_RUNNING);
-
-	if (dc->info->has_config_ex) {
+	if (dc->identity.has_config_ex) {
+		regmap_clear_bits(dc->regs, VSDC_DISP_PANEL_CONFIG(output),
+				  VSDC_DISP_PANEL_CONFIG_RUNNING);
 		regmap_clear_bits(dc->regs, VSDC_DISP_PANEL_START,
 				  VSDC_DISP_PANEL_START_MULTI_DISP_SYNC |
 				  VSDC_DISP_PANEL_START_RUNNING(output));
 
 		regmap_set_bits(dc->regs, VSDC_DISP_PANEL_CONFIG_EX(crtc->id),
 				VSDC_DISP_PANEL_CONFIG_EX_COMMIT);
+	} else {
+		/* DC8000/DCUltra Lite: stall DPI output by clearing RESET */
+		regmap_clear_bits(dc->regs, VSDC_FB_CONFIG(output),
+				  VSDC_FB_CONFIG_RESET);
 	}
 }
 
