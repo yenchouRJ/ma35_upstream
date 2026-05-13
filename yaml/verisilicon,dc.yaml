@@ -10,22 +10,6 @@ maintainers:
   - Icenowy Zheng <uwu@icenowy.me>
   - Joey Lu <yclu4@nuvoton.com>
 
-description:
-  Verisilicon DC-series display controllers, including the DC8200 used
-  in SoCs like the T-HEAD TH1520, and the DCUltra Lite used in the
-  Nuvoton MA35D1.
-
-select:
-  properties:
-    compatible:
-      contains:
-        enum:
-          - verisilicon,dc
-          - thead,th1520-dc8200
-          - nuvoton,ma35d1-dcu
-  required:
-    - compatible
-
 properties:
   $nodename:
     pattern: "^display@[0-9a-f]+$"
@@ -36,7 +20,7 @@ properties:
           - enum:
               - thead,th1520-dc8200
           - const: verisilicon,dc
-      - const: nuvoton,ma35d1-dcu
+      - const: verisilicon,dc  # DC IPs have discoverable ID/revision registers
 
   reg:
     maxItems: 1
@@ -91,13 +75,47 @@ allOf:
   - if:
       properties:
         compatible:
-          const: nuvoton,ma35d1-dcu
+          contains:
+            const: thead,th1520-dc8200
     then:
       properties:
         clocks:
           items:
-            - description: Bus clock that gates register access (DCU_GATE)
-            - description: Pixel clock divider for display timing (DCUP_DIV)
+            - description: DC Core clock
+            - description: DMA AXI bus clock
+            - description: Configuration AHB bus clock
+            - description: Pixel clock of output 0
+            - description: Pixel clock of output 1
+
+        clock-names:
+          items:
+            - const: core
+            - const: axi
+            - const: ahb
+            - const: pix0
+            - const: pix1
+
+        resets:
+          items:
+            - description: DC Core reset
+            - description: DMA AXI bus reset
+            - description: Configuration AHB bus reset
+
+        reset-names:
+          items:
+            - const: core
+            - const: axi
+            - const: ahb
+
+      required:
+        - ports
+
+    else:
+      properties:
+        clocks:
+          items:
+            - description: Bus clock that gates register access
+            - description: Pixel clock divider for display timing
 
         clock-names:
           items:
@@ -107,18 +125,11 @@ allOf:
         resets:
           maxItems: 1
           description:
-            Reset line for the display controller. Deasserted during probe
-            and asserted on removal if present.
+            Reset line for the display controller.
 
         reset-names:
           items:
             - const: core
-
-        port:
-          $ref: /schemas/graph.yaml#/properties/port
-          description:
-            Output port to the downstream display device (e.g. RGB panel).
-            The DCUltra Lite supports a single parallel RGB output.
 
       required:
         - port
@@ -177,7 +188,7 @@ examples:
     #include <dt-bindings/reset/nuvoton,ma35d1-reset.h>
 
     display@40260000 {
-        compatible = "nuvoton,ma35d1-dcu";
+        compatible = "verisilicon,dc";
         reg = <0x40260000 0x20000>;
         interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH>;
         clocks = <&clk DCU_GATE>, <&clk DCUP_DIV>;

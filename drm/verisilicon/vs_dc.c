@@ -8,10 +8,7 @@
 #include <linux/of.h>
 #include <linux/of_graph.h>
 
-#include "vs_crtc.h"
-#include "vs_crtc_regs.h"
 #include "vs_dc.h"
-#include "vs_dc_top_regs.h"
 #include "vs_drm.h"
 #include "vs_hwdb.h"
 
@@ -34,10 +31,7 @@ static irqreturn_t vs_dc_irq_handler(int irq, void *private)
 	struct vs_dc *dc = private;
 	u32 irqs;
 
-	if (dc->identity.uses_top_irq)
-		regmap_read(dc->regs, VSDC_TOP_IRQ_ACK, &irqs);
-	else
-		regmap_read(dc->regs, VSDC_DISP_IRQ_STA, &irqs);
+	irqs = dc->funcs->irq_handler(dc);
 
 	vs_drm_handle_irq(dc, irqs);
 
@@ -83,8 +77,8 @@ static int vs_dc_probe(struct platform_device *pdev)
 	dc->rsts[1].id = "axi";
 	dc->rsts[2].id = "ahb";
 
-	ret = devm_reset_control_bulk_get_optional_shared(dev,
-			VSDC_RESET_COUNT, dc->rsts);
+	ret = devm_reset_control_bulk_get_optional_shared(dev, VSDC_RESET_COUNT,
+							  dc->rsts);
 	if (ret) {
 		dev_err(dev, "can't get reset lines\n");
 		return ret;
@@ -137,9 +131,13 @@ static int vs_dc_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_rst_assert;
 
-	dev_info(dev, "Found DC%x rev %x customer %x\n",
-		 dc->identity.model, dc->identity.revision,
-		 dc->identity.customer_id);
+	dev_info(dev, "Found DC%x rev %x customer %x\n", dc->identity.model,
+		 dc->identity.revision, dc->identity.customer_id);
+
+	if (dc->identity.model == VSDC_MODEL_DC8200)
+		dc->funcs = &vs_dc8200_funcs;
+	else
+		dc->funcs = &vs_dcu_lite_funcs;
 
 	if (port_count > dc->identity.display_count) {
 		dev_err(dev, "too many downstream ports than HW capability\n");

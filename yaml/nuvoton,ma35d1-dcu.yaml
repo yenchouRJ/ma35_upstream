@@ -1,7 +1,0 @@
-# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
-# This file is superseded in v2. The Nuvoton MA35D1 DCUltra Lite
-# binding is now described by an if/then clause inside
-# verisilicon,dc.yaml rather than a separate schema file,
-# following the snps,dwcmshc-sdhci.yaml pattern.
-#
-# This file should be dropped from the patch series.
