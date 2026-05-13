@@ -16,11 +16,32 @@
 #include "vs_crtc_regs.h"
 #include "vs_crtc.h"
 #include "vs_dc.h"
-#include "vs_dc_top_regs.h"
 #include "vs_drm.h"
-#include "vs_hwdb.h"
 #include "vs_plane.h"
-#include "vs_primary_plane_regs.h"
+
+static void vs_crtc_atomic_begin(struct drm_crtc *crtc,
+				  struct drm_atomic_commit *state)
+{
+	struct vs_crtc *vcrtc = drm_crtc_to_vs_crtc(crtc);
+	struct vs_dc *dc = vcrtc->dc;
+	unsigned int output = vcrtc->id;
+
+	if (dc->funcs->crtc_begin)
+		dc->funcs->crtc_begin(dc, output);
+}
+
+static void vs_crtc_atomic_flush(struct drm_crtc *crtc,
+				  struct drm_atomic_commit *state)
+{
+	struct vs_crtc *vcrtc = drm_crtc_to_vs_crtc(crtc);
+	struct vs_dc *dc = vcrtc->dc;
+	unsigned int output = vcrtc->id;
+
+	if (dc->funcs->crtc_flush)
+		dc->funcs->crtc_flush(dc, output);
+
+	drm_crtc_vblank_atomic_flush(crtc, state);
+}
 
 static void vs_crtc_atomic_disable(struct drm_crtc *crtc,
 				   struct drm_atomic_commit *state)
@@ -33,9 +54,8 @@ static void vs_crtc_atomic_disable(struct drm_crtc *crtc,
 
 	clk_disable_unprepare(dc->pix_clk[output]);
 
-	if (!dc->identity.has_config_ex)
-		regmap_clear_bits(dc->regs, VSDC_FB_CONFIG(output),
-				VSDC_FB_CONFIG_ENABLE);
+	if (dc->funcs->crtc_disable)
+		dc->funcs->crtc_disable(dc, output);
 }
 
 static void vs_crtc_atomic_enable(struct drm_crtc *crtc,
@@ -48,9 +68,8 @@ static void vs_crtc_atomic_enable(struct drm_crtc *crtc,
 	drm_WARN_ON(&dc->drm_dev->base,
 		    clk_prepare_enable(dc->pix_clk[output]));
 
-	if (!dc->identity.has_config_ex)
-		regmap_set_bits(dc->regs, VSDC_FB_CONFIG(output),
-				VSDC_FB_CONFIG_ENABLE);
+	if (dc->funcs->crtc_enable)
+		dc->funcs->crtc_enable(dc, output);
 
 	drm_crtc_vblank_on(crtc);
 }
@@ -129,7 +148,8 @@ static bool vs_crtc_mode_fixup(struct drm_crtc *crtc,
 }
 
 static const struct drm_crtc_helper_funcs vs_crtc_helper_funcs = {
-	.atomic_flush	= drm_crtc_vblank_atomic_flush,
+	.atomic_begin	= vs_crtc_atomic_begin,
+	.atomic_flush	= vs_crtc_atomic_flush,
 	.atomic_enable	= vs_crtc_atomic_enable,
 	.atomic_disable	= vs_crtc_atomic_disable,
 	.mode_set_nofb	= vs_crtc_mode_set_nofb,
@@ -142,12 +162,7 @@ static int vs_crtc_enable_vblank(struct drm_crtc *crtc)
 	struct vs_crtc *vcrtc = drm_crtc_to_vs_crtc(crtc);
 	struct vs_dc *dc = vcrtc->dc;
 
-	if (dc->identity.uses_top_irq)
-		regmap_set_bits(dc->regs, VSDC_TOP_IRQ_EN,
-				VSDC_TOP_IRQ_VSYNC(vcrtc->id));
-	else
-		regmap_set_bits(dc->regs, VSDC_DISP_IRQ_EN,
-				VSDC_DISP_IRQ_VSYNC(vcrtc->id));
+	dc->funcs->enable_vblank(dc, vcrtc->id);
 
 	return 0;
 }
@@ -157,12 +172,7 @@ static void vs_crtc_disable_vblank(struct drm_crtc *crtc)
 	struct vs_crtc *vcrtc = drm_crtc_to_vs_crtc(crtc);
 	struct vs_dc *dc = vcrtc->dc;
 
-	if (dc->identity.uses_top_irq)
-		regmap_clear_bits(dc->regs, VSDC_TOP_IRQ_EN,
-				  VSDC_TOP_IRQ_VSYNC(vcrtc->id));
-	else
-		regmap_clear_bits(dc->regs, VSDC_DISP_IRQ_EN,
-				  VSDC_DISP_IRQ_VSYNC(vcrtc->id));
+	dc->funcs->disable_vblank(dc, vcrtc->id);
 }
 
 static const struct drm_crtc_funcs vs_crtc_funcs = {

@@ -78,7 +78,6 @@ static void vs_mode_config_init(struct drm_device *drm)
 	drm->mode_config.min_height = 0;
 	drm->mode_config.max_width = 8192;
 	drm->mode_config.max_height = 8192;
-
 	drm->mode_config.funcs = &vs_mode_config_funcs;
 	drm->mode_config.helper_private = &vs_mode_config_helper_funcs;
 }

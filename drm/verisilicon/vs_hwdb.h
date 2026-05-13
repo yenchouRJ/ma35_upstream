@@ -9,6 +9,9 @@
 #include <linux/regmap.h>
 #include <linux/types.h>
 
+#define VSDC_MODEL_DC8200 0x8200
+#define VSDC_MODEL_DCU_LITE 0x0
+
 struct vs_formats {
 	const u32 *array;
 	unsigned int num;
@@ -21,9 +24,6 @@ struct vs_chip_identity {
 
 	u32 display_count;
 	const struct vs_formats *formats;
-
-	bool has_config_ex;
-	bool uses_top_irq;
 };
 
 int vs_fill_chip_identity(struct regmap *regs,
