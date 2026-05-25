@@ -435,7 +435,7 @@
 		};
 
 		display: display@40260000 {
-			compatible = "verisilicon,dc";
+			compatible = "nuvoton,ma35d1-dcu", "verisilicon,dc";
 			reg = <0x0 0x40260000 0x0 0x2000>;
 			interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk DCU_GATE>, <&clk DCUP_DIV>;

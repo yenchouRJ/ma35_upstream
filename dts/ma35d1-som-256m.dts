@@ -177,9 +177,15 @@
 	pinctrl-0 = <&pinctrl_display>;
 	status = "okay";
 
-	port {
-		dpi_out: endpoint {
-			remote-endpoint = <&panel_in>;
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			dpi_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
 		};
 	};
 };

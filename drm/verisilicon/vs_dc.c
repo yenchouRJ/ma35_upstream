@@ -134,7 +134,7 @@ static int vs_dc_probe(struct platform_device *pdev)
 	dev_info(dev, "Found DC%x rev %x customer %x\n", dc->identity.model,
 		 dc->identity.revision, dc->identity.customer_id);
 
-	if (dc->identity.model == VSDC_MODEL_DC8200)
+	if (dc->identity.generation == VSDC_GEN_DC8200)
 		dc->funcs = &vs_dc8200_funcs;
 	else
 		dc->funcs = &vs_dcu_lite_funcs;

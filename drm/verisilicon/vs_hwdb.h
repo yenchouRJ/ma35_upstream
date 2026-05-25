@@ -9,8 +9,10 @@
 #include <linux/regmap.h>
 #include <linux/types.h>
 
-#define VSDC_MODEL_DC8200 0x8200
-#define VSDC_MODEL_DCU_LITE 0x0
+enum vs_dc_generation {
+	VSDC_GEN_DC8000,
+	VSDC_GEN_DC8200,
+};
 
 struct vs_formats {
 	const u32 *array;
@@ -22,6 +24,7 @@ struct vs_chip_identity {
 	u32 revision;
 	u32 customer_id;
 
+	enum vs_dc_generation generation;
 	u32 display_count;
 	const struct vs_formats *formats;
 };
