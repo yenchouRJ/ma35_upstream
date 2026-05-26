@@ -96,6 +96,7 @@ static struct vs_chip_identity vs_chip_identities[] = {
 
 		.generation = VSDC_GEN_DC8200,
 		.display_count = 2,
+		.max_cursor_size = 64,
 		.formats = &vs_formats_no_yuv444,
 	},
 	{
@@ -105,6 +106,7 @@ static struct vs_chip_identity vs_chip_identities[] = {
 
 		.generation = VSDC_GEN_DC8200,
 		.display_count = 2,
+		.max_cursor_size = 64,
 		.formats = &vs_formats_no_yuv444,
 	},
 	{
@@ -114,6 +116,7 @@ static struct vs_chip_identity vs_chip_identities[] = {
 
 		.generation = VSDC_GEN_DC8200,
 		.display_count = 2,
+		.max_cursor_size = 64,
 		.formats = &vs_formats_with_yuv444,
 	},
 	{
@@ -123,6 +126,7 @@ static struct vs_chip_identity vs_chip_identities[] = {
 
 		.generation = VSDC_GEN_DC8200,
 		.display_count = 2,
+		.max_cursor_size = 64,
 		.formats = &vs_formats_no_yuv444,
 	},
 	{
@@ -132,6 +136,7 @@ static struct vs_chip_identity vs_chip_identities[] = {
 
 		.generation = VSDC_GEN_DC8000,
 		.display_count = 1,
+		.max_cursor_size = 32,
 		.formats = &vs_formats_no_yuv444,
 	},
 };

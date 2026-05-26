@@ -126,6 +126,8 @@ int vs_drm_initialize(struct vs_dc *dc, struct platform_device *pdev)
 		return ret;
 
 	vs_mode_config_init(drm);
+	drm->mode_config.cursor_width = dc->identity.max_cursor_size;
+	drm->mode_config.cursor_height = dc->identity.max_cursor_size;
 
 	/* Enable connectors polling */
 	drm_kms_helper_poll_init(drm);
