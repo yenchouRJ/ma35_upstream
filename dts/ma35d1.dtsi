@@ -395,7 +395,6 @@
 			snps,perfect-filter-entries = <8>;
 			rx-fifo-depth = <4096>;
 			tx-fifo-depth = <2048>;
-			snps,clk-csr = <4>;
 
 			phy-mode = "rgmii-id";
 			status = "disabled";
@@ -422,7 +421,6 @@
 			snps,perfect-filter-entries = <8>;
 			rx-fifo-depth = <4096>;
 			tx-fifo-depth = <2048>;
-			snps,clk-csr = <4>;
 
 			phy-mode = "rgmii-id";
 			status = "disabled";
@@ -432,6 +430,52 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 			};
+		};
+
+		usb_phy0: usb-phy@40460060 {
+			compatible = "nuvoton,ma35d1-usb2-phy";
+			clocks = <&clk USBD_GATE>;
+			nuvoton,sys = <&sys>;
+			#phy-cells = <0>;
+			status = "disabled";
+		};
+
+		ehci0: usb@40140000 {
+			compatible = "nuvoton,ma35d1-ehci";
+			reg = <0x0 0x40140000 0x0 0x1000>;
+			interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk HUSBH0_GATE>;
+			nuvoton,sys = <&sys 0>;
+			companion = <&ohci0>;
+			oc-active-level = <0>;
+			status = "disabled";
+		};
+
+		ehci1: usb@401C0000 {
+			compatible = "nuvoton,ma35d1-ehci";
+			reg = <0x0 0x401c0000 0x0 0x1000>;
+			interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk HUSBH1_GATE>;
+			nuvoton,sys = <&sys 1>;
+			companion = <&ohci1>;
+			oc-active-level = <0>;
+			status = "disabled";
+		};
+
+		ohci0: usb@40150000 {
+			compatible = "generic-ohci";
+			reg = <0x0 0x40150000 0x0 0x1000>;
+			interrupts = <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk HUSBH0_GATE>;
+			status = "disabled";
+		};
+
+		ohci1: usb@401D0000 {
+			compatible = "generic-ohci";
+			reg = <0x0 0x401d0000 0x0 0x1000>;
+			interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk HUSBH1_GATE>;
+			status = "disabled";
 		};
 
 		display: display@40260000 {

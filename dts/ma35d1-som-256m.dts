@@ -142,6 +142,16 @@
 			power-source = <1>;
 		};
 	};
+
+	hsusbh {
+		pinctrl_hsusbh: hsusbh-pins {
+			nuvoton,pins = <5 15 1>, /* OTG_VBUS */
+				       <11 12 9>,    /* PWREN */
+				       <11 13 9>;    /* OVC */
+			bias-disable;
+			power-source = <1>;
+		};
+	};
 };
 
 &uart0 {
@@ -188,4 +198,22 @@
 			};
 		};
 	};
+};
+
+&ehci0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_hsusbh>;
+	status = "okay";
+};
+
+&ehci1 {
+	status = "okay";
+};
+
+&ohci0 {
+	status = "okay";
+};
+
+&ohci1 {
+	status = "okay";
 };
