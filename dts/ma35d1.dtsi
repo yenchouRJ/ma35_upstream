@@ -432,7 +432,7 @@
 			};
 		};
 
-		usb_phy0: usb-phy@40460060 {
+		usb_phy0: usb-phy@0 {
 			compatible = "nuvoton,ma35d1-usb2-phy";
 			clocks = <&clk USBD_GATE>;
 			nuvoton,sys = <&sys>;
@@ -440,25 +440,56 @@
 			status = "disabled";
 		};
 
+		usb_hphy0: usb-host-phy@0 {
+			compatible = "nuvoton,ma35d1-usb2-phy-otg";
+			clocks = <&clk HUSBH0_GATE>;
+			nuvoton,sys = <&sys 0>;
+			#phy-cells = <0>;
+			status = "disabled";
+		};
+
+		usb_hphy1: usb-host-phy@1 {
+			compatible = "nuvoton,ma35d1-usb2-phy-otg";
+			clocks = <&clk HUSBH1_GATE>;
+			nuvoton,sys = <&sys 1>;
+			#phy-cells = <0>;
+			status = "disabled";
+		};
+
+		usb: usb@40200000 {
+			compatible = "snps,dwc2";
+			reg = <0x0 0x40200000 0x0 0x1000>;
+			interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;	/* 64-32 */
+			clocks = <&clk USBD_GATE>;
+			clock-names = "otg";
+			phys = <&usb_phy0>;
+			phy-names = "usb2-phy";
+			dr_mode = "peripheral";
+			g-np-tx-fifo-size = <16>;
+			g-rx-fifo-size = <0x100>;
+			g-tx-fifo-size = <256 256 64 64 64 32 32 32>;
+			status = "disabled";
+		};
+
 		ehci0: usb@40140000 {
-			compatible = "nuvoton,ma35d1-ehci";
+			compatible = "generic-ehci";
 			reg = <0x0 0x40140000 0x0 0x1000>;
 			interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk HUSBH0_GATE>;
-			nuvoton,sys = <&sys 0>;
+			phys = <&usb_hphy0>;
+			phy-names = "usb2-phy";
 			companion = <&ohci0>;
-			oc-active-level = <0>;
 			status = "disabled";
 		};
 
 		ehci1: usb@401C0000 {
-			compatible = "nuvoton,ma35d1-ehci";
+			compatible = "generic-ehci";
 			reg = <0x0 0x401c0000 0x0 0x1000>;
 			interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk HUSBH1_GATE>;
-			nuvoton,sys = <&sys 1>;
+			phys = <&usb_hphy1>;
+			phy-names = "usb2-phy";
 			companion = <&ohci1>;
-			oc-active-level = <0>;
 			status = "disabled";
 		};
 
@@ -467,6 +498,8 @@
 			reg = <0x0 0x40150000 0x0 0x1000>;
 			interrupts = <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk HUSBH0_GATE>;
+			phys = <&usb_hphy0>;
+			phy-names = "usb2-phy";
 			status = "disabled";
 		};
 
@@ -475,6 +508,8 @@
 			reg = <0x0 0x401d0000 0x0 0x1000>;
 			interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk HUSBH1_GATE>;
+			phys = <&usb_hphy1>;
+			phy-names = "usb2-phy";
 			status = "disabled";
 		};
 

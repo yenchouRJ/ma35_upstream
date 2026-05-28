@@ -127,7 +127,8 @@
 	status = "okay";
 };
 
-&usb_phy0 {
+&usb_hphy0 {
+	nuvoton,rcalcode = <7>;
 	status = "okay";
 };
 

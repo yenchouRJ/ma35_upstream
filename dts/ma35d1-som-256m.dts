@@ -200,6 +200,24 @@
 	};
 };
 
+&usb_phy0 {
+	status = "okay";
+};
+
+&usb {
+	status = "okay";
+};
+
+&usb_hphy0 {
+	nuvoton,rcalcode = <7>;
+	status = "okay";
+};
+
+&usb_hphy1 {
+	nuvoton,rcalcode = <7>;
+	status = "okay";
+};
+
 &ehci0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_hsusbh>;
