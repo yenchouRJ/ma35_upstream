@@ -14,9 +14,13 @@
  *   - Optional resistor calibration trim (nuvoton,rcalcode)
  *   - Optional over-current detect polarity (nuvoton,oc-active-high)
  *
+ * For PHY0 (USB0, the OTG port), the driver also registers a
+ * usb_role_switch so userspace can observe the current role via sysfs
+ * by reading PWRONOTP[16] (the hardware ID pin state).
+ *
  * PHY0 (USB0) is shared between DWC2 gadget and EHCI0/OHCI0 host
- * controllers — the hardware switches via the USB ID pin.  PHY1
- * (USB1) is host-only.
+ * controllers — the hardware mux switches automatically via the USB
+ * ID pin.  PHY1 (USB1) is host-only.
  *
  * The driver checks whether the PHY is already operational before
  * running the Power-On Reset sequence, protecting against double
@@ -33,10 +37,15 @@
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
+#include <linux/usb/role.h>
 
 /* SYS register offsets (relative to syscon base 0x40460000) */
+#define MA35_SYS_PWRONOTP		0x04
 #define MA35_SYS_USBPMISCR		0x60
 #define MA35_SYS_MISCFCR0		0x70
+
+/* PWRONOTP bits */
+#define PWRONOTP_USBP0ID		BIT(16)	/* 0=device, 1=host */
 
 /*
  * USBPMISCR register layout (n = PHY index, 0 or 1):
@@ -81,7 +90,9 @@ struct ma35_otg_phy {
 	struct clk *clk;
 	struct device *dev;
 	struct regmap *sysreg;
-	unsigned int phy_idx;	/* 0 or 1, from nuvoton,sys phandle arg */
+	unsigned int phy_idx;		/* 0 or 1, from nuvoton,sys phandle arg */
+	struct usb_role_switch *role_sw;	/* only for phy_idx == 0 */
+	enum usb_role cur_role;
 };
 
 /**
@@ -150,11 +161,83 @@ static const struct phy_ops ma35_otg_phy_ops = {
 	.owner = THIS_MODULE,
 };
 
+/* ---- OTG role switch (PHY0 only) ---- */
+
+static enum usb_role ma35_otg_read_id(struct ma35_otg_phy *p)
+{
+	unsigned int val;
+
+	regmap_read(p->sysreg, MA35_SYS_PWRONOTP, &val);
+	return (val & PWRONOTP_USBP0ID) ? USB_ROLE_HOST : USB_ROLE_DEVICE;
+}
+
+/*
+ * ma35_otg_role_sw_set - called when something requests a role change
+ *
+ * On MA35D1 the hardware mux is controlled by the ID pin and cannot
+ * be overridden by software.  This callback is a no-op for actual
+ * mux switching, but records the current role for get() queries.
+ */
+static int ma35_otg_role_sw_set(struct usb_role_switch *sw,
+				enum usb_role role)
+{
+	struct ma35_otg_phy *p = usb_role_switch_get_drvdata(sw);
+
+	p->cur_role = role;
+	dev_dbg(p->dev, "USB0 role set to %s\n",
+		role == USB_ROLE_HOST ? "host" :
+		role == USB_ROLE_DEVICE ? "device" : "none");
+	return 0;
+}
+
+static enum usb_role ma35_otg_role_sw_get(struct usb_role_switch *sw)
+{
+	struct ma35_otg_phy *p = usb_role_switch_get_drvdata(sw);
+
+	return ma35_otg_read_id(p);
+}
+
+static int ma35_otg_role_switch_init(struct platform_device *pdev,
+				     struct ma35_otg_phy *p)
+{
+	struct usb_role_switch_desc sw_desc = { };
+
+	/* Read initial ID pin state */
+	p->cur_role = ma35_otg_read_id(p);
+
+	sw_desc.set = ma35_otg_role_sw_set;
+	sw_desc.get = ma35_otg_role_sw_get;
+	sw_desc.allow_userspace_control = true;
+	sw_desc.driver_data = p;
+	sw_desc.fwnode = dev_fwnode(&pdev->dev);
+
+	p->role_sw = usb_role_switch_register(&pdev->dev, &sw_desc);
+	if (IS_ERR(p->role_sw))
+		return dev_err_probe(&pdev->dev, PTR_ERR(p->role_sw),
+				     "failed to register role switch\n");
+
+	dev_info(&pdev->dev, "USB0 initial role: %s\n",
+		 p->cur_role == USB_ROLE_HOST ? "host" : "device");
+
+	return 0;
+}
+
+static void ma35_otg_role_switch_exit(struct ma35_otg_phy *p)
+{
+	if (!p->role_sw)
+		return;
+
+	usb_role_switch_unregister(p->role_sw);
+	p->role_sw = NULL;
+}
+
+/* ---- Platform driver ---- */
+
 static int ma35_otg_phy_probe(struct platform_device *pdev)
 {
 	struct phy_provider *provider;
 	struct ma35_otg_phy *p;
-	struct of_phandle_args args;
+	unsigned int sys_args[1];
 	struct phy *phy;
 	u32 rcalcode;
 	int ret;
@@ -167,26 +250,18 @@ static int ma35_otg_phy_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, p);
 
 	/*
-	 * Parse "nuvoton,sys = <&sys N>" where N is the PHY index:
-	 *   0 → PHY0 (USB0, shared with gadget)
-	 *   1 → PHY1 (USB1, host-only)
-	 *
-	 * This follows the same pattern as the MA35D1 GMAC driver.
+	 * "nuvoton,sys = <&sys N>" — N is the PHY index (0 or 1).
+	 * syscon_regmap_lookup_by_phandle_args() resolves the phandle to a
+	 * regmap and returns the argument cell in sys_args[0].
 	 */
-	ret = of_parse_phandle_with_fixed_args(pdev->dev.of_node,
-					       "nuvoton,sys", 1, 0, &args);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to parse nuvoton,sys: %d\n", ret);
-		return ret;
-	}
-
-	p->sysreg = syscon_node_to_regmap(args.np);
-	p->phy_idx = args.args[0];
-	of_node_put(args.np);
-
+	p->sysreg = syscon_regmap_lookup_by_phandle_args(pdev->dev.of_node,
+							 "nuvoton,sys",
+							 1, sys_args);
 	if (IS_ERR(p->sysreg))
 		return dev_err_probe(&pdev->dev, PTR_ERR(p->sysreg),
 				     "Failed to get SYS regmap\n");
+
+	p->phy_idx = sys_args[0];
 
 	if (p->phy_idx > 1) {
 		dev_err(&pdev->dev, "invalid PHY index %u (must be 0 or 1)\n",
@@ -234,9 +309,23 @@ static int ma35_otg_phy_probe(struct platform_device *pdev)
 		return dev_err_probe(&pdev->dev, PTR_ERR(provider),
 				     "Failed to register PHY provider\n");
 
+	/* For PHY0 (USB0 OTG port): register role switch */
+	if (p->phy_idx == 0) {
+		ret = ma35_otg_role_switch_init(pdev, p);
+		if (ret)
+			return ret;
+	}
+
 	dev_info(&pdev->dev, "USB PHY%u initialized (host mode)\n", p->phy_idx);
 
 	return 0;
+}
+
+static void ma35_otg_phy_remove(struct platform_device *pdev)
+{
+	struct ma35_otg_phy *p = platform_get_drvdata(pdev);
+
+	ma35_otg_role_switch_exit(p);
 }
 
 static const struct of_device_id ma35_otg_phy_of_match[] = {
@@ -247,6 +336,7 @@ MODULE_DEVICE_TABLE(of, ma35_otg_phy_of_match);
 
 static struct platform_driver ma35_otg_phy_driver = {
 	.probe	= ma35_otg_phy_probe,
+	.remove	= ma35_otg_phy_remove,
 	.driver	= {
 		.name		= "ma35d1-usb2-phy-otg",
 		.of_match_table	= ma35_otg_phy_of_match,

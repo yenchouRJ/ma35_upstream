@@ -17,9 +17,12 @@ config PHY_MA35_USB_OTG
 	depends on OF
 	select GENERIC_PHY
 	select MFD_SYSCON
+	select USB_ROLE_SWITCH
 	help
-	  Enable this to support the USB2.0 host PHY on the Nuvoton MA35
+	  Enable this to support the USB2.0 OTG PHY on the Nuvoton MA35
 	  series SoCs.  This driver handles PHY initialization for the
 	  EHCI/OHCI host controllers, including per-PHY power-on reset,
 	  resistor calibration trim, and over-current polarity
-	  configuration.  Use this with generic-ehci and generic-ohci.
+	  configuration.  For the OTG port (PHY0), it also monitors the
+	  USB ID pin and registers a USB role switch.
+	  Use this with generic-ehci and generic-ohci.
