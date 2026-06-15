@@ -163,7 +163,7 @@ static void vs_bridge_enable_common(struct vs_crtc *crtc,
 			VSDC_DISP_PANEL_CONFIG_DAT_EN |
 			VSDC_DISP_PANEL_CONFIG_CLK_EN);
 
-	dc->funcs->bridge_enable(dc, output);
+	dc->funcs->panel_enable_ex(dc, output);
 }
 
 static void vs_bridge_atomic_enable_dpi(struct drm_bridge *bridge,
@@ -221,7 +221,7 @@ static void vs_bridge_atomic_disable(struct drm_bridge *bridge,
 	struct vs_dc *dc = crtc->dc;
 	unsigned int output = crtc->id;
 
-	dc->funcs->bridge_disable(dc, output);
+	dc->funcs->panel_disable_ex(dc, output);
 }
 
 static const struct drm_bridge_funcs vs_dpi_bridge_funcs = {
@@ -232,7 +232,7 @@ static const struct drm_bridge_funcs vs_dpi_bridge_funcs = {
 	.atomic_get_output_bus_fmts = vs_bridge_atomic_get_output_bus_fmts_dpi,
 	.atomic_duplicate_state = drm_atomic_helper_bridge_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_bridge_destroy_state,
-	.atomic_reset = drm_atomic_helper_bridge_reset,
+	.atomic_create_state = drm_atomic_helper_bridge_create_state,
 };
 
 static const struct drm_bridge_funcs vs_dp_bridge_funcs = {
@@ -244,7 +244,7 @@ static const struct drm_bridge_funcs vs_dp_bridge_funcs = {
 	.atomic_get_output_bus_fmts = vs_bridge_atomic_get_output_bus_fmts_dp,
 	.atomic_duplicate_state = drm_atomic_helper_bridge_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_bridge_destroy_state,
-	.atomic_reset = drm_atomic_helper_bridge_reset,
+	.atomic_create_state = drm_atomic_helper_bridge_create_state,
 };
 
 static int vs_bridge_detect_output_interface(struct device_node *of_node,

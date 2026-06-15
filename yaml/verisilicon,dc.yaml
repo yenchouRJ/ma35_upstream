@@ -18,7 +18,7 @@ properties:
       - enum:
           - thead,th1520-dc8200
           - nuvoton,ma35d1-dcu
-      - const: verisilicon,dc  # DC IPs have discoverable ID/revision registers
+      - const: verisilicon,dc # DC IPs have discoverable ID/revision registers
 
   reg:
     maxItems: 1
@@ -28,19 +28,21 @@ properties:
 
   clocks:
     minItems: 2
-    items:
-      - description: DC Core clock
-      - description: DMA AXI bus clock
-      - description: Configuration AHB bus clock
-      - description: Pixel clock of output 0
-      - description: Pixel clock of output 1
+    maxItems: 5
 
   clock-names:
     minItems: 2
     maxItems: 5
+    items:
+      - const: core
+      - const: axi
+      - const: ahb
+      - const: pix0
+      - const: pix1
 
   resets:
     minItems: 1
+    maxItems: 3
     items:
       - description: DC Core reset
       - description: DMA AXI bus reset
@@ -49,6 +51,10 @@ properties:
   reset-names:
     minItems: 1
     maxItems: 3
+    items:
+      - const: core
+      - const: axi
+      - const: ahb
 
   ports:
     $ref: /schemas/graph.yaml#/properties/ports
@@ -85,24 +91,28 @@ allOf:
         clocks:
           minItems: 5
           maxItems: 5
+          items:
+            - description: DC Core clock
+            - description: DMA AXI bus clock
+            - description: Configuration AHB bus clock
+            - description: Pixel clock of output 0
+            - description: Pixel clock of output 1
 
         clock-names:
-          items:
-            - const: core
-            - const: axi
-            - const: ahb
-            - const: pix0
-            - const: pix1
+          minItems: 5
+          maxItems: 5
 
         resets:
           minItems: 3
           maxItems: 3
 
         reset-names:
-          items:
-            - const: core
-            - const: axi
-            - const: ahb
+          minItems: 3
+          maxItems: 3
+
+      required:
+        - resets
+        - reset-names
 
   - if:
       properties:
@@ -114,20 +124,26 @@ allOf:
         clocks:
           minItems: 2
           maxItems: 2
+          items:
+            - description: DC Core clock
+            - description: Pixel clock of output 0
 
         clock-names:
-          items:
-            - const: core
-            - const: pix0
+          minItems: 2
+          maxItems: 2
 
         resets:
+          minItems: 1
           maxItems: 1
 
         reset-names:
-          items:
-            - const: core
+          maxItems: 1
 
-unevaluatedProperties: false
+      required:
+        - resets
+        - reset-names
+
+additionalProperties: false
 
 examples:
   - |
@@ -169,31 +185,4 @@ examples:
           };
         };
       };
-    };
-
-  - |
-    #include <dt-bindings/interrupt-controller/arm-gic.h>
-    #include <dt-bindings/clock/nuvoton,ma35d1-clk.h>
-    #include <dt-bindings/reset/nuvoton,ma35d1-reset.h>
-
-    display@40260000 {
-        compatible = "nuvoton,ma35d1-dcu", "verisilicon,dc";
-        reg = <0x40260000 0x20000>;
-        interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH>;
-        clocks = <&clk DCU_GATE>, <&clk DCUP_DIV>;
-        clock-names = "core", "pix0";
-        resets = <&sys MA35D1_RESET_DISP>;
-        reset-names = "core";
-
-        ports {
-            #address-cells = <1>;
-            #size-cells = <0>;
-
-            port@0 {
-                reg = <0>;
-                dpi_out: endpoint {
-                    remote-endpoint = <&panel_in>;
-                };
-            };
-        };
     };

@@ -27,8 +27,8 @@ struct vs_dc;
 
 struct vs_dc_funcs {
 	/* Bridge: atomic_enable, atomic_disable */
-	void (*bridge_enable)(struct vs_dc *dc, unsigned int output);
-	void (*bridge_disable)(struct vs_dc *dc, unsigned int output);
+	void (*panel_enable_ex)(struct vs_dc *dc, unsigned int output);
+	void (*panel_disable_ex)(struct vs_dc *dc, unsigned int output);
 
 	/* CRTC: atomic_begin, atomic_flush */
 	void (*crtc_begin)(struct vs_dc *dc, unsigned int output);
@@ -43,13 +43,13 @@ struct vs_dc_funcs {
 	void (*disable_vblank)(struct vs_dc *dc, unsigned int output);
 
 	/* Primary plane: atomic_enable, atomic_disable, atomic_update */
-	void (*plane_enable_ex)(struct vs_dc *dc, unsigned int output);
-	void (*plane_disable_ex)(struct vs_dc *dc, unsigned int output);
-	void (*plane_update_ex)(struct vs_dc *dc, unsigned int output,
-				struct drm_plane_state *state);
+	void (*primary_plane_enable_ex)(struct vs_dc *dc, unsigned int output);
+	void (*primary_plane_disable_ex)(struct vs_dc *dc, unsigned int output);
+	void (*primary_plane_update_ex)(struct vs_dc *dc, unsigned int output,
+					struct drm_plane_state *state);
 
-	/* IRQ handler */
-	u32 (*irq_handler)(struct vs_dc *dc);
+	/* IRQ acknowledge */
+	u32 (*irq_ack)(struct vs_dc *dc);
 };
 
 struct vs_dc {
@@ -66,6 +66,6 @@ struct vs_dc {
 };
 
 extern const struct vs_dc_funcs vs_dc8200_funcs;
-extern const struct vs_dc_funcs vs_dcu_lite_funcs;
+extern const struct vs_dc_funcs vs_dc8000_funcs;
 
 #endif /* _VS_DC_H_ */

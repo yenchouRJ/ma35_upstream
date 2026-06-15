@@ -31,7 +31,7 @@ static irqreturn_t vs_dc_irq_handler(int irq, void *private)
 	struct vs_dc *dc = private;
 	u32 irqs;
 
-	irqs = dc->funcs->irq_handler(dc);
+	irqs = dc->funcs->irq_ack(dc);
 
 	vs_drm_handle_irq(dc, irqs);
 
@@ -137,7 +137,7 @@ static int vs_dc_probe(struct platform_device *pdev)
 	if (dc->identity.generation == VSDC_GEN_DC8200)
 		dc->funcs = &vs_dc8200_funcs;
 	else
-		dc->funcs = &vs_dcu_lite_funcs;
+		dc->funcs = &vs_dc8000_funcs;
 
 	if (port_count > dc->identity.display_count) {
 		dev_err(dev, "too many downstream ports than HW capability\n");

@@ -11,7 +11,7 @@
 #include "vs_plane.h"
 #include "vs_primary_plane_regs.h"
 
-static void vs_dc8200_bridge_enable(struct vs_dc *dc, unsigned int output)
+static void vs_dc8200_panel_enable_ex(struct vs_dc *dc, unsigned int output)
 {
 	regmap_set_bits(dc->regs, VSDC_DISP_PANEL_CONFIG(output),
 			VSDC_DISP_PANEL_CONFIG_RUNNING);
@@ -24,7 +24,7 @@ static void vs_dc8200_bridge_enable(struct vs_dc *dc, unsigned int output)
 			VSDC_DISP_PANEL_CONFIG_EX_COMMIT);
 }
 
-static void vs_dc8200_bridge_disable(struct vs_dc *dc, unsigned int output)
+static void vs_dc8200_panel_disable_ex(struct vs_dc *dc, unsigned int output)
 {
 	regmap_clear_bits(dc->regs, VSDC_DISP_PANEL_CONFIG(output),
 			  VSDC_DISP_PANEL_CONFIG_RUNNING);
@@ -54,7 +54,7 @@ static void vs_dc8200_plane_commit(struct vs_dc *dc, unsigned int output)
 			VSDC_FB_CONFIG_EX_COMMIT);
 }
 
-static void vs_dc8200_plane_enable_ex(struct vs_dc *dc, unsigned int output)
+static void vs_dc8200_primary_plane_enable_ex(struct vs_dc *dc, unsigned int output)
 {
 	regmap_set_bits(dc->regs, VSDC_FB_CONFIG_EX(output),
 			VSDC_FB_CONFIG_EX_FB_EN);
@@ -65,7 +65,7 @@ static void vs_dc8200_plane_enable_ex(struct vs_dc *dc, unsigned int output)
 	vs_dc8200_plane_commit(dc, output);
 }
 
-static void vs_dc8200_plane_disable_ex(struct vs_dc *dc, unsigned int output)
+static void vs_dc8200_primary_plane_disable_ex(struct vs_dc *dc, unsigned int output)
 {
 	regmap_set_bits(dc->regs, VSDC_FB_CONFIG_EX(output),
 			VSDC_FB_CONFIG_EX_FB_EN);
@@ -73,7 +73,7 @@ static void vs_dc8200_plane_disable_ex(struct vs_dc *dc, unsigned int output)
 	vs_dc8200_plane_commit(dc, output);
 }
 
-static void vs_dc8200_plane_update_ex(struct vs_dc *dc, unsigned int output,
+static void vs_dc8200_primary_plane_update_ex(struct vs_dc *dc, unsigned int output,
 				       struct drm_plane_state *state)
 {
 	regmap_write(dc->regs, VSDC_FB_TOP_LEFT(output),
@@ -87,7 +87,7 @@ static void vs_dc8200_plane_update_ex(struct vs_dc *dc, unsigned int output,
 	vs_dc8200_plane_commit(dc, output);
 }
 
-static u32 vs_dc8200_irq_handler(struct vs_dc *dc)
+static u32 vs_dc8200_irq_ack(struct vs_dc *dc)
 {
 	u32 irqs;
 
@@ -96,12 +96,12 @@ static u32 vs_dc8200_irq_handler(struct vs_dc *dc)
 }
 
 const struct vs_dc_funcs vs_dc8200_funcs = {
-	.bridge_enable		= vs_dc8200_bridge_enable,
-	.bridge_disable		= vs_dc8200_bridge_disable,
-	.enable_vblank		= vs_dc8200_enable_vblank,
-	.disable_vblank		= vs_dc8200_disable_vblank,
-	.plane_enable_ex	= vs_dc8200_plane_enable_ex,
-	.plane_disable_ex	= vs_dc8200_plane_disable_ex,
-	.plane_update_ex	= vs_dc8200_plane_update_ex,
-	.irq_handler		= vs_dc8200_irq_handler,
+	.panel_enable_ex		= vs_dc8200_panel_enable_ex,
+	.panel_disable_ex		= vs_dc8200_panel_disable_ex,
+	.enable_vblank			= vs_dc8200_enable_vblank,
+	.disable_vblank			= vs_dc8200_disable_vblank,
+	.primary_plane_enable_ex	= vs_dc8200_primary_plane_enable_ex,
+	.primary_plane_disable_ex	= vs_dc8200_primary_plane_disable_ex,
+	.primary_plane_update_ex	= vs_dc8200_primary_plane_update_ex,
+	.irq_ack			= vs_dc8200_irq_ack,
 };
