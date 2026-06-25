@@ -8,6 +8,7 @@
 #include "vs_bridge_regs.h"
 #include "vs_dc.h"
 #include "vs_dc_top_regs.h"
+#include "vs_drm.h"
 #include "vs_plane.h"
 #include "vs_primary_plane_regs.h"
 
@@ -89,10 +90,17 @@ static void vs_dc8200_primary_plane_update_ex(struct vs_dc *dc, unsigned int out
 
 static u32 vs_dc8200_irq_ack(struct vs_dc *dc)
 {
-	u32 irqs;
+	u32 hw_irqs, unified = 0;
+	unsigned int i;
 
-	regmap_read(dc->regs, VSDC_TOP_IRQ_ACK, &irqs);
-	return irqs;
+	regmap_read(dc->regs, VSDC_TOP_IRQ_ACK, &hw_irqs);
+
+	for (i = 0; i < VSDC_MAX_OUTPUTS; i++) {
+		if (hw_irqs & VSDC_TOP_IRQ_VSYNC(i))
+			unified |= VSDC_IRQ_VSYNC(i);
+	}
+
+	return unified;
 }
 
 const struct vs_dc_funcs vs_dc8200_funcs = {

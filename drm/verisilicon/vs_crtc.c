@@ -54,8 +54,8 @@ static void vs_crtc_atomic_disable(struct drm_crtc *crtc,
 
 	clk_disable_unprepare(dc->pix_clk[output]);
 
-	if (dc->funcs->crtc_disable)
-		dc->funcs->crtc_disable(dc, output);
+	if (dc->funcs->crtc_disable_ex)
+		dc->funcs->crtc_disable_ex(dc, output);
 }
 
 static void vs_crtc_atomic_enable(struct drm_crtc *crtc,
@@ -68,8 +68,8 @@ static void vs_crtc_atomic_enable(struct drm_crtc *crtc,
 	drm_WARN_ON(&dc->drm_dev->base,
 		    clk_prepare_enable(dc->pix_clk[output]));
 
-	if (dc->funcs->crtc_enable)
-		dc->funcs->crtc_enable(dc, output);
+	if (dc->funcs->crtc_enable_ex)
+		dc->funcs->crtc_enable_ex(dc, output);
 
 	drm_crtc_vblank_on(crtc);
 }

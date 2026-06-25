@@ -35,8 +35,8 @@ struct vs_dc_funcs {
 	void (*crtc_flush)(struct vs_dc *dc, unsigned int output);
 
 	/* CRTC: atomic_enable, atomic_disable */
-	void (*crtc_enable)(struct vs_dc *dc, unsigned int output);
-	void (*crtc_disable)(struct vs_dc *dc, unsigned int output);
+	void (*crtc_enable_ex)(struct vs_dc *dc, unsigned int output);
+	void (*crtc_disable_ex)(struct vs_dc *dc, unsigned int output);
 
 	/* CRTC: enable_vblank, disable_vblank */
 	void (*enable_vblank)(struct vs_dc *dc, unsigned int output);

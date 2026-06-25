@@ -27,12 +27,14 @@ properties:
     maxItems: 1
 
   clocks:
-    minItems: 2
-    maxItems: 5
+    items:
+      - description: DC Core clock
+      - description: DMA AXI bus clock
+      - description: Configuration AHB bus clock
+      - description: Pixel clock of output 0
+      - description: Pixel clock of output 1
 
   clock-names:
-    minItems: 2
-    maxItems: 5
     items:
       - const: core
       - const: axi
@@ -41,16 +43,12 @@ properties:
       - const: pix1
 
   resets:
-    minItems: 1
-    maxItems: 3
     items:
       - description: DC Core reset
       - description: DMA AXI bus reset
       - description: Configuration AHB bus reset
 
   reset-names:
-    minItems: 1
-    maxItems: 3
     items:
       - const: core
       - const: axi
@@ -62,7 +60,7 @@ properties:
     properties:
       port@0:
         $ref: /schemas/graph.yaml#/properties/port
-        description: The first output channel, endpoint 0 should be
+        description: The first output channel , endpoint 0 should be
           used for DPI format output and endpoint 1 should be used
           for DP format output.
 
@@ -91,12 +89,6 @@ allOf:
         clocks:
           minItems: 5
           maxItems: 5
-          items:
-            - description: DC Core clock
-            - description: DMA AXI bus clock
-            - description: Configuration AHB bus clock
-            - description: Pixel clock of output 0
-            - description: Pixel clock of output 1
 
         clock-names:
           minItems: 5
@@ -124,20 +116,19 @@ allOf:
         clocks:
           minItems: 2
           maxItems: 2
-          items:
-            - description: DC Core clock
-            - description: Pixel clock of output 0
 
         clock-names:
-          minItems: 2
-          maxItems: 2
+          items:
+            - const: core
+            - const: pix0
 
         resets:
           minItems: 1
           maxItems: 1
 
         reset-names:
-          maxItems: 1
+          items:
+            - const: core
 
       required:
         - resets
