@@ -5,6 +5,8 @@
 
 #include <linux/regmap.h>
 
+#include <drm/drm_print.h>
+
 #include "vs_bridge_regs.h"
 #include "vs_dc.h"
 #include "vs_dc_top_regs.h"
@@ -90,15 +92,19 @@ static void vs_dc8200_primary_plane_update_ex(struct vs_dc *dc, unsigned int out
 
 static u32 vs_dc8200_irq_ack(struct vs_dc *dc)
 {
-	u32 hw_irqs, unified = 0;
+	u32 hw_irqs, unified = 0, known = 0;
 	unsigned int i;
 
 	regmap_read(dc->regs, VSDC_TOP_IRQ_ACK, &hw_irqs);
 
 	for (i = 0; i < VSDC_MAX_OUTPUTS; i++) {
+		known |= VSDC_TOP_IRQ_VSYNC(i);
 		if (hw_irqs & VSDC_TOP_IRQ_VSYNC(i))
 			unified |= VSDC_IRQ_VSYNC(i);
 	}
+
+	drm_WARN_ONCE(&dc->drm_dev->base, hw_irqs & ~known,
+		      "Unknown hardware IRQ bits: %#x\n", hw_irqs & ~known);
 
 	return unified;
 }

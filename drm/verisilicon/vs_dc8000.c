@@ -5,6 +5,8 @@
 
 #include <linux/regmap.h>
 
+#include <drm/drm_print.h>
+
 #include "vs_crtc_regs.h"
 #include "vs_dc.h"
 #include "vs_drm.h"
@@ -60,15 +62,19 @@ static void vs_dc8000_disable_vblank(struct vs_dc *dc, unsigned int output)
 
 static u32 vs_dc8000_irq_ack(struct vs_dc *dc)
 {
-	u32 hw_irqs, unified = 0;
+	u32 hw_irqs, unified = 0, known = 0;
 	unsigned int i;
 
 	regmap_read(dc->regs, VSDC_DISP_IRQ_STA, &hw_irqs);
 
 	for (i = 0; i < VSDC_MAX_OUTPUTS; i++) {
+		known |= VSDC_DISP_IRQ_VSYNC(i);
 		if (hw_irqs & VSDC_DISP_IRQ_VSYNC(i))
 			unified |= VSDC_IRQ_VSYNC(i);
 	}
+
+	drm_WARN_ONCE(&dc->drm_dev->base, hw_irqs & ~known,
+		      "Unknown hardware IRQ bits: %#x\n", hw_irqs & ~known);
 
 	return unified;
 }

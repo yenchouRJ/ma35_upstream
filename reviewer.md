@@ -1,350 +1,717 @@
-# V4 of the patch series for Verisilicon DC driver
+# Background
+This drm dirver patch series is according to the our last patch at
+/home/joeylu/Documents/upstream2026/drm/kernel branch upstream-v5
 
-## local changable
-- local driver at /home/joeylu/Documents/upstream2026/ma35_upstream/drm/verisilicon 
-- local yaml at /home/joeylu/Documents/upstream2026/ma35_upstream/yaml/verisilicon,dc.yaml
-- local dts at /home/joeylu/Documents/upstream2026/ma35_upstream/dts
+Reviewer and maintainer are discuess my patch and give me some suggestions, I need to reply them and reflect their suggestions in my patch.
 
-## reference only
-- The original patches at /home/joeylu/Documents/upstream2026/drm/kernel branch upstream-v4
+# First part: yaml
 
-# Reviewers' comments on the v4 of the patch series (Done)
-
-## Re: [PATCH v4 1/6]
-
+## Re: [PATCH v5 1/7] dt-bindings: display: verisilicon,dc: generalize for single-output variants
+> The verisilicon,dc binding was originally written for the T-Head TH1520
+> SoC carrying a DC8200, and hard-codes five clocks, three resets and two
+> output ports.
+>
+> Add the Nuvoton MA35D1 DCUltraLite (nuvoton,ma35d1-dcu) to the binding.
+> The DCUltraLite uses only two clocks (core, pix0) and one reset (core),
+> with a single output port.
+>
+> Use allOf/if blocks to express per-variant constraints rather than
+> hard-coding the DC8200 topology at the top level.  Each compatible's
+> block constrains the clock and reset item counts; the nuvoton block
+> additionally overrides clock-names to the two names it actually uses.
+>
+> Signed-off-by: Joey Lu <a0987203069@gmail.com>
+> ---
+>  .../bindings/display/verisilicon,dc.yaml      | 57 +++++++++++++++++++
+>  1 file changed, 57 insertions(+)
+>
+> diff --git a/Documentation/devicetree/bindings/display/verisilicon,dc.yaml b/Documentation/devicetree/bindings/display/verisilicon,dc.yaml
+> index 9dc35ab973f2..1e751f3c7ce8 100644
+> --- a/Documentation/devicetree/bindings/display/verisilicon,dc.yaml
+> +++ b/Documentation/devicetree/bindings/display/verisilicon,dc.yaml
+> @@ -17,6 +17,7 @@ properties:
 >      items:
 >        - enum:
 >            - thead,th1520-dc8200
 > +          - nuvoton,ma35d1-dcu
->        - const: verisilicon,dc # DC IPs have discoverable ID/revision
-> registers
+>        - const: verisilicon,dc # DC IPs have discoverable ID/revision registers
 >  
 >    reg:
-> @@ -26,14 +27,12 @@ properties:
->      maxItems: 1
+> @@ -77,6 +78,62 @@ required:
+>    - clock-names
+>    - ports
 >  
->    clocks:
-> -    items:
-> -      - description: DC Core clock
-> -      - description: DMA AXI bus clock
-> -      - description: Configuration AHB bus clock
-> -      - description: Pixel clock of output 0
-> -      - description: Pixel clock of output 1
-
-Clock descriptions should still be in the global part instead of the
-per-compatible part.
-
-In the per-compatible part, clock-names should be constraint for SoCs.
-
-Reply: I will move the `items:` clock descriptions back into the global `clocks:` property, covering all five possible clocks. In the per-compatible sections I will remove the description items and only constrain `clocks: minItems/maxItems` and `clock-names: minItems/maxItems`; for nuvoton,ma35d1-dcu I will additionally override `clock-names: items:` to the two names actually used (core, pix0).
-
->    reset-names:
-> +    minItems: 1
-> +    maxItems: 3
->      items:
->        - const: core
->        - const: axi
-> @@ -59,7 +62,7 @@ properties:
->      properties:
->        port@0:
->          $ref: /schemas/graph.yaml#/properties/port
-> -        description: The first output channel , endpoint 0 should be
-> +        description: The first output channel, endpoint 0 should be
-
-If you really want to fix this, please make it a separated patch
-instead of doing it here, for commit atomicity.
-
-Thanks,
-Icenowy
-
-Reply:  I’ll drop this change and keep it as is
-
-## Re: [PATCH v4 2/6]
-
->   VSDC_DISP_IRQ_VSYNC(n) in vs_crtc_regs.h: bit mask for per-output
->   VSYNC interrupt bits in DISP_IRQ_STA (0x147C) / DISP_IRQ_EN
-> (0x1480),
->   which are the IRQ registers used by DCUltraLite in place of the
-> DC8200
->   TOP_IRQ_ACK / TOP_IRQ_EN registers.
->
->   VSDC_FB_CONFIG_ENABLE (bit 0), VSDC_FB_CONFIG_VALID (bit 3) and
->   VSDC_FB_CONFIG_RESET (bit 4) in vs_primary_plane_regs.h: control
-> bits
->   in the FB_CONFIG register used by DCUltraLite for framebuffer
-> enable
->   and per-frame commit handshake.
-
-Validated against DC8000 register list.
-
-Reviewed-by: Icenowy Zheng <zhengxingda@iscas.ac.cn>
-
-
-## Re: [PATCH v4 3/6]
-
->  static void vs_crtc_atomic_disable(struct drm_crtc *crtc,
->  				   struct drm_atomic_commit *state)
->  {
-> @@ -30,6 +53,9 @@ static void vs_crtc_atomic_disable(struct drm_crtc
-> *crtc,
->  	drm_crtc_vblank_off(crtc);
->  
->  	clk_disable_unprepare(dc->pix_clk[output]);
+> +allOf:
+> +  - if:
+> +      properties:
+> +        compatible:
+> +          contains:
+> +            const: thead,th1520-dc8200
+> +    then:
+> +      properties:
+> +        clocks:
+> +          minItems: 5
+> +          maxItems: 5
 > +
-> +	if (dc->funcs->crtc_disable)
-> +		dc->funcs->crtc_disable(dc, output);
+> +        clock-names:
+> +          minItems: 5
+> +          maxItems: 5
 
-Should this be `crtc_disable_ex` ? Because the clock-related operation
-is shared.
+All the maxItems here repeat the maximum constraint and do nothing.
 
-Reply: I will rename `crtc_disable` to `crtc_disable_ex` and `crtc_enable` to `crtc_enable_ex` in v5 to make clear these hooks extend the shared clock operations rather than replace them.
+Since you didn't change the minimum constraint at the top level, your
+minItems also do nothing.
 
->  }
->  
->  static void vs_crtc_atomic_enable(struct drm_crtc *crtc,
-> @@ -42,6 +68,9 @@ static void vs_crtc_atomic_enable(struct drm_crtc
-> *crtc,
->  	drm_WARN_ON(&dc->drm_dev->base,
->  		    clk_prepare_enable(dc->pix_clk[output]));
->  
-> +	if (dc->funcs->crtc_enable)
-> +		dc->funcs->crtc_enable(dc, output);
-> 
-Ditto for appending `_ex` .
+> +
+> +        resets:
+> +          minItems: 3
+> +          maxItems: 3
+> +
+> +        reset-names:
+> +          minItems: 3
+> +          maxItems: 3
+> +
+> +      required:
+> +        - resets
+> +        - reset-names
 
-Reply: Addressed above.
+Both conditional sections have this, but the original binding doesn't
+require these for the thead device. This is a functional change
+therefore and shouldn't be in a patch calling itself "generalise for
+single ended variants".
 
->  #include <linux/of.h>
->  #include <linux/of_graph.h>
->  
-> -#include "vs_crtc.h"
->  #include "vs_dc.h"
-> -#include "vs_dc_top_regs.h"
->  #include "vs_drm.h"
->  #include "vs_hwdb.h"
->  
-> @@ -33,7 +31,7 @@ static irqreturn_t vs_dc_irq_handler(int irq, void
-> *private)
->  	struct vs_dc *dc = private;
->  	u32 irqs;
->  
-> -	regmap_read(dc->regs, VSDC_TOP_IRQ_ACK, &irqs);
-> +	irqs = dc->funcs->irq_ack(dc);
+FWIW, adding your new compatible shouldn't really be in a patch with
+that subject either, it really should say "add support for nuvoton
+ma35d1" or something.
 
-The definition of bits in 0x0010 seems to be different to ones in
-0x147C, although the first 2 bits are the same. (e.g. `BIT(2)` is
-"cursor interrupt" in DC8000 0x147C but "secure reset done" in DC8200
-0x0010).
+> +
+> +  - if:
+> +      properties:
+> +        compatible:
+> +          contains:
+> +            const: nuvoton,ma35d1-dcu
+> +    then:
+> +      properties:
+> +        clocks:
+> +          minItems: 2
 
-Should some kind of translation be done in `irq_ack` ? (and add a
-unified interrupt definition that aims to be the translation target).
+Anything that updates the minimum constraint should be done at the top
+level of this schema. The conditional section should then tighten the
+constraint, in this case that means only having maxItems.
+
+> +          maxItems: 2
+> +
+> +        clock-names:
+> +          items:
+> +            - const: core
+> +            - const: pix0
+
+Does this even work when the top level schema thinks clock 2 should be
+called axi?
+
+> +
+> +        resets:
+> +          minItems: 1
+> +          maxItems: 1
+> +
+> +        reset-names:
+> +          items:
+> +            - const: core
+
+This is just maxItems: 1.
+
+pw-bot: changes-requested
+
+Thanks,
+Conor.
+
+> +
+> +      required:
+> +        - resets
+> +        - reset-names
+> +
+>  additionalProperties: false
+
+
+## Re: [PATCH v5 1/7] dt-bindings: display: verisilicon,dc: generalize for single-output variants (followup)
+>> diff --git a/Documentation/devicetree/bindings/display/verisilicon,dc.yaml b/Documentation/devicetree/bindings/display/verisilicon,dc.yaml
+>> index 9dc35ab973f2..1e751f3c7ce8 100644
+>> --- a/Documentation/devicetree/bindings/display/verisilicon,dc.yaml
+>> +++ b/Documentation/devicetree/bindings/display/verisilicon,dc.yaml
+>> @@ -17,6 +17,7 @@ properties:
+>>      items:
+>>        - enum:
+>>            - thead,th1520-dc8200
+>> +          - nuvoton,ma35d1-dcu
+>>        - const: verisilicon,dc # DC IPs have discoverable ID/revision registers
+>>  
+>>    reg:
+>> @@ -77,6 +78,62 @@ required:
+>>    - clock-names
+>>    - ports
+>>  
+>> +allOf:
+>> +  - if:
+>> +      properties:
+>> +        compatible:
+>> +          contains:
+>> +            const: thead,th1520-dc8200
+>> +    then:
+>> +      properties:
+>> +        clocks:
+>> +          minItems: 5
+>> +          maxItems: 5
+>> +
+>> +        clock-names:
+>> +          minItems: 5
+>> +          maxItems: 5
+>
+> All the maxItems here repeat the maximum constraint and do nothing.
+>
+> Since you didn't change the minimum constraint at the top level, your
+> minItems also do nothing.
+>
+>> +
+>> +        resets:
+>> +          minItems: 3
+>> +          maxItems: 3
+>> +
+>> +        reset-names:
+>> +          minItems: 3
+>> +          maxItems: 3
+>> +
+>> +      required:
+>> +        - resets
+>> +        - reset-names
+>
+> Both conditional sections have this, but the original binding doesn't
+> require these for the thead device. This is a functional change
+> therefore and shouldn't be in a patch calling itself "generalise for
+> single ended variants".
+>
+> FWIW, adding your new compatible shouldn't really be in a patch with
+> that subject either, it really should say "add support for nuvoton
+> ma35d1" or something.
+>
+>> +
+>> +  - if:
+>> +      properties:
+>> +        compatible:
+>> +          contains:
+>> +            const: nuvoton,ma35d1-dcu
+>> +    then:
+>> +      properties:
+>> +        clocks:
+>> +          minItems: 2
+>
+> Anything that updates the minimum constraint should be done at the top
+> level of this schema. The conditional section should then tighten the
+> constraint, in this case that means only having maxItems.
+>
+>> +          maxItems: 2
+>> +
+>> +        clock-names:
+>> +          items:
+>> +            - const: core
+>> +            - const: pix0
+>
+> Does this even work when the top level schema thinks clock 2 should be
+> called axi?
+
+Additionally here, only have core and pix0 seems like it might be an
+oversimplification. I doubt removing the second output port means that
+the axi and ahb clocks are no longer needed.
+Is it the case that your device supplies the same clock to core, ahb and
+axi? If so, then you should fill those clocks in in your devicetree and
+this can just constrain the number of clocks/clock-names to 4.
+
+>
+>> +
+>> +        resets:
+>> +          minItems: 1
+>> +          maxItems: 1
+>> +
+>> +        reset-names:
+>> +          items:
+>> +            - const: core
+>
+> This is just maxItems: 1.
+>
+> pw-bot: changes-requested
+>
+> Thanks,
+> Conor.
+
+
+## Reply #1
+> Additionally here, only have core and pix0 seems like it might be an
+> oversimplification. I doubt removing the second output port means
+> that
+> the axi and ahb clocks are no longer needed.
+> Is it the case that your device supplies the same clock to core, ahb
+> and
+> axi? If so, then you should fill those clocks in in your devicetree
+> and
+> this can just constrain the number of clocks/clock-names to 4.
+
+The clock controller of that SoC is quite weird -- it has only a single
+gate bit, but controlling 3 clock gates. All core, ahb and axi clocks
+have gates controlled by this single bit, so it's why currently it's
+modelled as only core clock supplied.
+
+Well it might be worthful to supply the bus clock before the gate as
+ahb/axi, especially axi, because both the AXI clock and the core clock
+constraints the maximum pixel clock.
 
 Thanks,
 Icenowy
 
-Reply: I will add a set of unified IRQ bit definitions (e.g. `VSDC_IRQ_VSYNC(n)`) in a shared header. Each `irq_ack` implementation will translate its hardware-specific register bits into those unified bits before returning, so `vs_drm_handle_irq` can use the unified definitions without knowing which register layout was used. Currently the VSYNC bits (BIT(0)/BIT(1)) coincide between DC8200 0x0010 and DC8000 0x147C, so the translation is trivial; this change will prevent future confusion from diverging bit meanings (such as BIT(2)).
+## Reply #2
+> The clock controller of that SoC is quite weird -- it has only a single
+> gate bit, but controlling 3 clock gates. All core, ahb and axi clocks
+> have gates controlled by this single bit, so it's why currently it's
+> modelled as only core clock supplied.
 
+Yeah, then what's in the binding is definitely wrong.
+Even if the same clock was provided to all clock inputs in the IP, all
+individual clock should be listed in the devicetree - although it will
+look a little silly to see clocks = <&foo 2>, <&foo 2>, <&foo 2>, <&foo 2>;
+In this case, 3 clocks controlled by 1 gate bit is an implementation detail
+of the SoC's clocking hardware, and not relevant to how the dc instance
+should be described.
 
-## Re: [PATCH v4 4/6]
+> Well it might be worthful to supply the bus clock before the gate as
+> ahb/axi, especially axi, because both the AXI clock and the core clock
+> constraints the maximum pixel clock.
 
-> --- a/drivers/gpu/drm/verisilicon/vs_dc.c
-> +++ b/drivers/gpu/drm/verisilicon/vs_dc.c
-> @@ -90,13 +90,13 @@ static int vs_dc_probe(struct platform_device
-> *pdev)
->  		return PTR_ERR(dc->core_clk);
->  	}
->  
-> -	dc->axi_clk = devm_clk_get_enabled(dev, "axi");
-> +	dc->axi_clk = devm_clk_get_optional_enabled(dev, "axi");
->  	if (IS_ERR(dc->axi_clk)) {
->  		dev_err(dev, "can't get axi clock\n");
->  		return PTR_ERR(dc->axi_clk);
->  	}
->  
-> -	dc->ahb_clk = devm_clk_get_enabled(dev, "ahb");
-> +	dc->ahb_clk = devm_clk_get_optional_enabled(dev, "ahb");
+Right. And looking at patch 4/7, and the wording:
+| The Nuvoton MA35D1 SoC integrates a DCUltraLite display controller whose
+| AXI and AHB bus clocks share a single gate enable bit with the display
+| core clock, so the clock driver does not expose them separately. This
+| patch makes the axi and ahb clocks optional in the probe.
 
-Please make the clock change a separated patch for atomicity.
+It sounds like there's probably some issues with how things are modelled
+clock wise in this device, unless this is not an accurate statement and
+there's actually one clock provided to all three inputs. If they're
+distinct clocks, with different rates, only having one exposed has a lot
+of potential to be problematic!
 
-BTW the MA35D1 manual's clock tree shows that DCUltra appears on AXI2
-ACLK, AHB_HCLK2, behind a mux of SYS-PLL/EPLL-DIV2 (which seems to be
-the core clock), and behind a divider (which seems to be the pixel
-clock).
+## Reply #3
+>
+> It sounds like there's probably some issues with how things are
+> modelled
+> clock wise in this device, unless this is not an accurate statement
+> and
+> there's actually one clock provided to all three inputs. If they're
+> distinct clocks, with different rates, only having one exposed has a
+> lot
+> of potential to be problematic!
 
-However it's weird that only one DCUltra Clock Enable Bit exists
-despite both bus clocks have "ICG" (I think it means "Integrated Clock
-Gating"). In addition the linux clk-ma35d1 driver assigns "dcu_gate" as
-a downstream of "dcu_mux", although the Figure 6.5-2 in the TRM shows
-no ICG after the "Display core CLK" mux.
+Yes, I agree with this, they're different clocks according to the
+manual.
 
-Is the two bus clocks controlled by a single gate bit, and is the bit
-also gating DC core clock?
+I added the clk people to the CC list in a reply of the previous
+revision, but they didn't react yet. I don't know how to represent
+multiple clock gates sharing a single control bit in the clock
+framework...
+
+Maybe just supplying the ungated AXI/AHB clocks here, and let the core
+clock manage the gate?
 
 Thanks,
 Icenowy
 
-Reply: I will split the axi/ahb optional-clock change into its own patch in v5 for atomicity.
-Regarding the MA35D1 clock tree: from the TRM, the single "dcu_gate" bit gates both bus clocks (AXI ACLK and AHB HCLK) together with the display core clock through the same ICG cell. The clk-ma35d1 driver exposes only "dcu_gate" (downstream of "dcu_mux") and does not provide separate axi/ahb clock entries. Therefore the MA35D1 DT binding will use only two clocks ("core" and "pix0"); making axi and ahb optional in the driver is the correct approach, and this will be stated clearly in the split-out patch.
+## Reply #4
+> Yes, I agree with this, they're different clocks according to the
+> manual.
+>
+> I added the clk people to the CC list in a reply of the previous
+> revision, but they didn't react yet. I don't know how to represent
+> multiple clock gates sharing a single control bit in the clock
+> framework...
 
-## Re: [PATCH v4 5/6]
+Yeah, I have absolutely no idea. Maybe it requires custom refcounting?
+Surely this cannot be the only device that does something like this
+though.
 
-> Register the Nuvoton MA35D1 DCUltraLite chip identity in
-> vs_chip_identities[]:
->   model       = 0x0   (DCUltraLite; Verisilicon uses 0 for this IP)
->   revision    = 0x5560
->   customer_id = 0x305
->   generation  = VSDC_GEN_DC8000
->   display_count = 1
->   max_cursor_size = 32
+> Maybe just supplying the ungated AXI/AHB clocks here, and let the core
+> clock manage the gate?
 
-I suggest make this more human-readable instead of replicating the
-machine-readable data of HWDB.
+I guess, but that seems incorrect and would require commentary about why
+it's being done. Feel like they (the missing axi/ahb clocks) should be
+added to the clock driver and binding, and any special workarounds done
+there.
+Of course letting the core clock manage the gate and making the enable
+method for the gated AXI/AHB clocks be a NOP is one way of handling it
+in the clock driver. Still a bit of a hack compared to refcounting it,
+but it makes me happier to have the correct clock tree modelled in DT.
 
-My proposal here:
+## Reply #5
+> Both conditional sections have this, but the original binding doesn't
+> require these for the thead device. This is a functional change
+> therefore and shouldn't be in a patch calling itself "generalise for
+> single ended variants".
+
+Well yes they're required.
+
+Should I send a patch adding the `thead,th1520-dc8200` part of the
+schema?
+
+>
+> FWIW, adding your new compatible shouldn't really be in a patch with
+> that subject either, it really should say "add support for nuvoton
+> ma35d1" or something.
+>
+>> +
+>> +  - if:
+>> +      properties:
+>> +        compatible:
+>> +          contains:
+>> +            const: nuvoton,ma35d1-dcu
+>> +    then:
+>> +      properties:
+>> +        clocks:
+>> +          minItems: 2
+>
+> Anything that updates the minimum constraint should be done at the
+> top
+> level of this schema. The conditional section should then tighten the
+> constraint, in this case that means only having maxItems.
+>
+>> +          maxItems: 2
+>> +
+>> +        clock-names:
+>> +          items:
+>> +            - const: core
+>> +            - const: pix0
+>
+> Does this even work when the top level schema thinks clock 2 should
+> be
+> called axi?
+>
+>> +
+>> +        resets:
+>> +          minItems: 1
+>> +          maxItems: 1
+>> +
+>> +        reset-names:
+>> +          items:
+>> +            - const: core
+>
+> This is just maxItems: 1.
+
+Well the implicit rules of DT binding schemas are quite weird...
+
+Thanks,
+Icenowy
+
+## Reply #6
+> Should I send a patch adding the `thead,th1520-dc8200` part of the
+> schema?
+
+If you mean the code above, no. Adding a conditional section when
+there's only that compatible doesn't make sense.
+
+What you could do is just add it at the top level though, which would
+also benefit this patch since it'd not have to be conditionally added
+for the new nuvoton device.
+Just note in your commit message about what the ABI impact of the change
+to required properties is (effectively nothing because it's optional in
+the driver and the only user has the properties).
+
+>
+> Well the implicit rules of DT binding schemas are quite weird...
+
+I don't think it is that strange, as the binding has
+  reset-names:
+    items:
+      - const: core
+      - const: axi
+      - const: ahb
+so just constraining to one item is the simplest way to do this without
+duplication.
+
+## Reply # 7
+> If you mean the code above, no. Adding a conditional section when
+> there's only that compatible doesn't make sense.
+>
+> What you could do is just add it at the top level though, which would
+> also benefit this patch since it'd not have to be conditionally added
+> for the new nuvoton device.
+> Just note in your commit message about what the ABI impact of the
+> change
+> to required properties is (effectively nothing because it's optional
+> in
+> the driver and the only user has the properties).
+
+Okay, I will craft such a patch and send it.
+
+> I don't think it is that strange, as the binding has
+>   reset-names:
+>     items:
+>       - const: core
+>       - const: axi
+>       - const: ahb
+
+Ah does the list constraint the order of items? If it constrains the
+order, it partly breaks the intention of having names; if it does not
+constrain the order, it needs to be clarified that the required 1 reset
+is core instead of the other two.
+
+Thanks,
+Icenowy
+
+## Reply #8
+> If you mean the code above, no. Adding a conditional section when
+> there's only that compatible doesn't make sense.
+>
+> What you could do is just add it at the top level though, which would
+> also benefit this patch since it'd not have to be conditionally added
+> for the new nuvoton device.
+> Just note in your commit message about what the ABI impact of the
+> change
+> to required properties is (effectively nothing because it's optional
+> in
+> the driver and the only user has the properties).
+
+Okay, I will craft such a patch and send it.
+
+>
+> Ah does the list constraint the order of items? If it constrains the
+
+It does, yes.
+Alternatively, using an enum permits free ordering.
+
+> order, it partly breaks the intention of having names; if it does not
+> constrain the order, it needs to be clarified that the required 1 reset
+> is core instead of the other two.
+
+Given the discussion we're having on the clocks, I wonder if this is
+also an oversimplification and the IP has three resets inputs hooked up
+to one output of the reset controller (or 3 outputs controlled by one
+bit..).
+
+## Reply #9
+>
+> It does, yes.
+> Alternatively, using an enum permits free ordering.
+
+Ah in this case this should be converted to an enum, I think.
+
+Should I send a patch for converting it?
+
+Thanks,
+Icenowy
+
+## Reply #10
+>
+> Ah in this case this should be converted to an enum, I think.
+>
+> Should I send a patch for converting it?
+
+Why do you think it should be an enum? We don't currently have any users
+of this that only provide no core or no axi reset.
+
+
+## Our reply
+
+> Ah in this case this should be converted to an enum, I think.
+>
+> Should I send a patch for converting it?
+
+Thank you all for the detailed review and discussion, it really helped
+clarify the right approach.
+
+Since I will supply all four clocks with the same phandle for core/axi/ahb,
+and only one reset "core" for MA35D1, the ordering constraint in the
+`items` list is not a problem, "core" is already the first entry. There
+is no need to convert to an enum.
+
+Regarding the clock situation for the MA35D1: I agree with supplying all
+four clocks (core, axi, ahb, pix0) in the devicetree, even though the
+MA35D1 clock controller gates core/axi/ahb with a single bit. The DT will
+use the same clock phandle for core, axi, and ahb:
+
+  clocks = <&clk X>, <&clk X>, <&clk X>, <&pix_clk Y>;
+  clock-names = "core", "axi", "ahb", "pix0";
+
+The DRM driver only calls clk_prepare_enable() on core/axi/ahb and never
+calls clk_set_rate() on them, so the driver works correctly with this
+approach. A proper clock driver rework to expose the real AXI/AHB rates
+will be handled in a separate patch series.
+I will also revert the change in patch 4/7 that made axi and ahb clocks
+optional, since they will now always be provided in the devicetree.
+
+Regarding moving `resets` and `reset-names` to the top-level `required:`,
+I will wait for Icenowy's patch to land before sending v6 to avoid
+duplicating the work.
+
+In v6 I will update patch 1/7 with:
+- Update the subject to "dt-bindings: display: verisilicon,dc: add
+  support for nuvoton,ma35d1-dcu"
+- Lower `clocks`/`clock-names` `minItems` to 4 at the top level
+- Remove the `thead,th1520-dc8200` conditional block entirely
+- Keep only the `nuvoton,ma35d1-dcu` conditional block, using only
+  `maxItems: 4` for clocks/clock-names and `maxItems: 1` for
+  resets/reset-names to tighten the top-level constraints
+
+BR,
+Joey
+
+
+# Second part: driver
+
+## Re: [PATCH v5 3/7] drm/verisilicon: introduce per-variant hardware ops table
+> +static u32 vs_dc8200_irq_ack(struct vs_dc *dc)
+> +{
+> +	u32 hw_irqs, unified = 0;
+> +	unsigned int i;
+> +
+> +	regmap_read(dc->regs, VSDC_TOP_IRQ_ACK, &hw_irqs);
+> +
+> +	for (i = 0; i < VSDC_MAX_OUTPUTS; i++) {
+> +		if (hw_irqs & VSDC_TOP_IRQ_VSYNC(i))
+> +			unified |= VSDC_IRQ_VSYNC(i);
+> +	}
+
+Maybe add a drm_WARN_ONCE for unknown hardware IRQ bit?
+
+Well, with this addressed,
 
 ```
-The Nuvoton MA35D1 chip contains a DCUltraLite display controller with
-model number 0x0 (sic, the model name contains no number either),
-revision 0x5560 and customer ID 0x305. It has a similar register map
-with DC8000, only one display output and only 32x32 cursor supported.
+Reviewed-by: Icenowy Zheng <zhengxingda@iscas.ac.cn>
 ```
 
-Reply: I will use your proposed wording for the commit message in v5
+Thanks,
+Icenowy
 
+I will add a `drm_WARN_ONCE` after the IRQ translation loop in
+`vs_dc8200_irq_ack` to catch any unknown hardware IRQ bits:
 
-> Placing this entry last makes it the gate that enables MA35D1
-> hardware
-> recognition only after all the supporting ops and DT binding changes
-> are
-> in place.
+  drm_WARN_ONCE(&dc->drm_dev->base, hw_irqs & ~known,
+                "Unknown hardware IRQ bits: %#x\n", hw_irqs & ~known);
 
-It's a little ambiguous that "last" here means whether the last in the
-patchset or the last in the HWDB array, although I think it's not so
-needed to explain the reason of the place in the patchset.
+## Re: [PATCH v5 4/7] drm/verisilicon: make axi and ahb clocks optional
+> The Nuvoton MA35D1 SoC integrates a DCUltraLite display controller
+> whose
+> AXI and AHB bus clocks share a single gate enable bit with the
+> display
+> core clock, so the clock driver does not expose them separately. This
+> patch makes the axi and ahb clocks optional in the probe.
+>
+> Signed-off-by: Joey Lu <a0987203069@gmail.com>
 
-I propose just say `Adding it to the HWDB to enable it to be usable
-with the verisilicon driver.` .
-
-Reply: I will simplify the placement sentence to "Adding it to the HWDB to enable it to be usable with the verisilicon driver." in v5.
-
-
-## Re: [PATCH v4 6/6]
-
-> The DCUltraLite hardware ops and HWDB entry added in the preceding
-> commits
-> enable the driver to work on Nuvoton MA35D1 hardware.  Allow the
-> driver
-> to be built when ARCH_MA35 is selected; this dependency is meaningful
-> only
-> now that all supporting code is in place.
-
-The explaination of patch sequence is not needed, but anyway,
-
-`Reviewed-by: Icenowy Zheng <zhengxingda@iscas.ac.cn>`
+```
+Reviewed-by: Icenowy Zheng <zhengxingda@iscas.ac.cn>
+```
 
 Thanks,
 Icenowy
 
-# Reviewers' comments on the v4 of the patch series (Follow up)
+Thank you for the review. I will revert this patch entirely. As discussed
+in the binding review, axi and ahb clocks will now always be supplied in
+the devicetree using the same phandle as the core clock gate, so making
+them optional in the driver is no longer needed.
 
-## Re: [PATCH v4 1/6]
+## Re: [PATCH v5 5/7] drm/verisilicon: add DC8000 (DCUltraLite) display controller support
+> +static u32 vs_dc8000_irq_ack(struct vs_dc *dc)
+> +{
+> +	u32 hw_irqs, unified = 0;
+> +	unsigned int i;
+> +
+> +	regmap_read(dc->regs, VSDC_DISP_IRQ_STA, &hw_irqs);
+> +
+> +	for (i = 0; i < VSDC_MAX_OUTPUTS; i++) {
+> +		if (hw_irqs & VSDC_DISP_IRQ_VSYNC(i))
+> +			unified |= VSDC_IRQ_VSYNC(i);
+> +	}
 
->>>     clocks:
->>> -    items:
->>> -      - description: DC Core clock
->>> -      - description: DMA AXI bus clock
->>> -      - description: Configuration AHB bus clock
->>> -      - description: Pixel clock of output 0
->>> -      - description: Pixel clock of output 1
->> Clock descriptions should still be in the global part instead of
->> the
->> per-compatible part.
->>
->> In the per-compatible part, clock-names should be constraint for
->> SoCs.
-> I will move the `items:` clock descriptions back into the global 
-> `clocks:` property, covering all five possible clocks. In the 
-> per-compatible sections I will remove the description items and only 
-> constrain `clocks: minItems/maxItems` and `clock-names: 
-> minItems/maxItems`; for nuvoton,ma35d1-dcu I will additionally
-> override 
-> `clock-names: items:` to the two names actually used (core, pix0).
-
-Yes, this should be the correct practice, although I wonder whether the
-minItems and maxItems properties are needed globally (because these two
-seem to have default implicit value).
-
-BTW the MA35D1 manual in fact shows 4 clocks for "DCUltra" in the clock
-tree, maybe the DT binding needs to be reconsidered?
+Maybe a warning for unknown IRQ bits should be added here.
 
 Thanks,
 Icenowy
 
-Reply: I will drop the global `minItems`/`maxItems` on `clocks` and `clock-names` in v5, as they are redundant with the implicit defaults.
-Regarding the 4-clock question: the TRM clock tree diagram does show four paths reaching DCUltra (display core mux/gate, AXI ACLK, AHB HCLK, and the pixel clock divider). However, the MA35D1 hardware provides only one software-controllable enable bit (SYSCLK0[26]) that gates the core clock together with the AXI and AHB bus clocks through shared ICG cells; there are no separate register bits for the bus clocks alone. Due to this hardware design constraint, the `clk-ma35d1` driver is intentionally designed to register only three DCU-related CCF nodes: `dcu_mux` (ID 61, an internal routing mux), `dcu_gate` (ID 62, the single gate at SYSCLK0 bit 26), and `dcup_div` (ID 63, the pixel divider from VPLL at CLKDIV0[18:16]), with no independent AXI or AHB gate entries for DCU. Since the DT binding can only reference clock handles that the platform clock driver actually provides, the MA35D1 binding will remain at two clock entries: "core" mapped to `DCU_GATE` and "pix0" mapped to `DCUP_DIV`.
+I will add the same `drm_WARN_ONCE` pattern in `vs_dc8000_irq_ack` for
+unknown `VSDC_DISP_IRQ_STA` bits.
 
-## Re: [PATCH v4 4/6]
+## Re: [PATCH v5 6/7] drm/verisilicon: add DCUltraLite chip identity to HWDB
+> --- a/drivers/gpu/drm/verisilicon/vs_hwdb.c
+> +++ b/drivers/gpu/drm/verisilicon/vs_hwdb.c
+> @@ -129,6 +129,16 @@ static struct vs_chip_identity
+> vs_chip_identities[] = {
+>  		.max_cursor_size = 64,
+>  		.formats = &vs_formats_no_yuv444,
+>  	},
+> +	{
+> +		.model = 0x0,		/* DCUltraLite */
+> +		.revision = 0x5560,
+> +		.customer_id = 0x305,
+> +
+> +		.generation = VSDC_GEN_DC8000,
+> +		.display_count = 1,
+> +		.max_cursor_size = 32,
+> +		.formats = &vs_formats_no_yuv444,
+> +	},
 
->>>   
->>> -	dc->axi_clk = devm_clk_get_enabled(dev, "axi");
->>> +	dc->axi_clk = devm_clk_get_optional_enabled(dev, "axi");
->>>   	if (IS_ERR(dc->axi_clk)) {
->>>   		dev_err(dev, "can't get axi clock\n");
->>>   		return PTR_ERR(dc->axi_clk);
->>>   	}
->>>   
->>> -	dc->ahb_clk = devm_clk_get_enabled(dev, "ahb");
->>> +	dc->ahb_clk = devm_clk_get_optional_enabled(dev, "ahb");
->> Please make the clock change a separated patch for atomicity.
->>
->> BTW the MA35D1 manual's clock tree shows that DCUltra appears on
->> AXI2
->> ACLK, AHB_HCLK2, behind a mux of SYS-PLL/EPLL-DIV2 (which seems to
->> be
->> the core clock), and behind a divider (which seems to be the pixel
->> clock).
->>
->> However it's weird that only one DCUltra Clock Enable Bit exists
->> despite both bus clocks have "ICG" (I think it means "Integrated
->> Clock
->> Gating"). In addition the linux clk-ma35d1 driver assigns
->> "dcu_gate" as
->> a downstream of "dcu_mux", although the Figure 6.5-2 in the TRM
->> shows
->> no ICG after the "Display core CLK" mux.
->>
->> Is the two bus clocks controlled by a single gate bit, and is the
->> bit
->> also gating DC core clock?
->>
->> Thanks,
->> Icenowy
-> I will split the axi/ahb optional-clock change into its own patch in
-> v5 
-> for atomicity.
-> Regarding the MA35D1 clock tree: from the TRM, the single "dcu_gate"
-> bit 
-> gates both bus clocks (AXI ACLK and AHB HCLK) together with the
-> display 
-> core clock through the same ICG cell. The clk-ma35d1 driver exposes
-> only 
-> "dcu_gate" (downstream of "dcu_mux") and does not provide separate 
+Checked against the MA35D1 manual, and it looks okay.
 
-Then it's one of the case that the clock tree doesn't properly
-represent the hardware, which is bad. However, as three gates share the
-same bit, I am not sure how to represent such kind of thing in the
-common clk framework.
-
-> axi/ahb clock entries. Therefore the MA35D1 DT binding will use only
-> two 
-> clocks ("core" and "pix0"); making axi and ahb optional in the driver
-> is the correct approach, and this will be stated clearly in the
->  split-out patch.
-
-I agree to make them optional, although these two clocks do exist in
-the hardware of MA35D1.
+```
+Reviewed-by: Icenowy Zheng <zhengxingda@iscas.ac.cn>
+```
 
 Thanks,
 Icenowy
 
-Reply: As mentioned in the DT binding reply, the absence of separate AXI/AHB clock entries for DCU in `clk-ma35d1` is due to the hardware design constraint of a single shared enable bit, not a driver oversight. In v5, the axi and ahb clock fetches in `vs_dc_probe` will be split into their own patch and made optional via `devm_clk_get_optional_enabled`, with a comment explaining that on MA35D1 the AXI and AHB bus clocks share the single `dcu_gate` enable bit and are therefore not separately exposed by the clock driver.
+# Followup discussion
+
+> This correctly models the hardware topology. Since all three names
+> resolve to the same underlying clock node...
+
+No, this doesn't correctly model the hardware topology -- this will
+lead to clk_get_rate() return the rate of DC core clock when checking
+the AXI clock rate, which is problematic because both clocks are
+limiting the performance of the DC.
+
+You are right. The current MA35D1 clock driver does not correctly reflect
+the real AXI/AHB clock rates, and I think it needs a more comprehensive
+review and rework. I will address this in a separate clock driver patch
+series in the future.
+
+For this DRM patch series, the verisilicon driver only calls
+clk_prepare_enable() on the core, axi, and ahb clocks, it never calls
+clk_set_rate() on them (only the pixel clock is rate-controlled). So the
+DRM driver works correctly regardless of what rates the clock driver
+currently reports for axi/ahb, and the DRM driver itself does not need
+to change when the clock driver is later reworked.
+
+> In v6 I will update patch 1/7 with:
+> - Update the subject to "dt-bindings: display: verisilicon,dc: add
+>    support for nuvoton,ma35d1-dcu"
+> - Lower `clocks`/`clock-names` `minItems` to 4 at the top level
+> - Remove the `thead,th1520-dc8200` conditional block entirely
+
+I think this conditional block will still be needed, because it will
+need to constrain the minItems to ensure all clocks / resets are
+populated.
+
+Thanks,
+Icenowy
+
+Correct. When the outer constraints are relaxed to deal with the new
+device the conditional block for the th1520 becomes required. Or having
+an else, but if all devices are likely to be different in terms of
+configuration specific conditional blocks is better.
+
+Understood. I will keep the `thead,th1520-dc8200` conditional block.
+
+TODOs (updated):
+- Update patch 1/7 subject to "dt-bindings: display: verisilicon,dc: add support for nuvoton,ma35d1-dcu"
+- Wait for Icenowy's patch (resets/reset-names to top-level required) before sending v6
+- Keep thead conditional block with minItems: 5 (clocks) and minItems: 3 (resets)
+- Move clocks/clock-names minItems: 4 and resets/reset-names minItems: 1 to top level
+- nuvoton conditional: maxItems: 4 (clocks) and maxItems: 1 (resets) only
+- Use same phandle for core/axi/ahb in MA35D1 DT (clk driver rework deferred to separate series)
+- Drop patch 4/7 (make axi/ahb optional), axi/ahb will always be provided in DT
+
+
+

@@ -27,6 +27,7 @@ properties:
     maxItems: 1
 
   clocks:
+    minItems: 4
     items:
       - description: DC Core clock
       - description: DMA AXI bus clock
@@ -35,6 +36,7 @@ properties:
       - description: Pixel clock of output 1
 
   clock-names:
+    minItems: 4
     items:
       - const: core
       - const: axi
@@ -43,12 +45,14 @@ properties:
       - const: pix1
 
   resets:
+    minItems: 1
     items:
       - description: DC Core reset
       - description: DMA AXI bus reset
       - description: Configuration AHB bus reset
 
   reset-names:
+    minItems: 1
     items:
       - const: core
       - const: axi
@@ -76,6 +80,8 @@ required:
   - interrupts
   - clocks
   - clock-names
+  - resets
+  - reset-names
   - ports
 
 allOf:
@@ -88,23 +94,15 @@ allOf:
       properties:
         clocks:
           minItems: 5
-          maxItems: 5
 
         clock-names:
           minItems: 5
-          maxItems: 5
 
         resets:
           minItems: 3
-          maxItems: 3
 
         reset-names:
           minItems: 3
-          maxItems: 3
-
-      required:
-        - resets
-        - reset-names
 
   - if:
       properties:
@@ -114,25 +112,16 @@ allOf:
     then:
       properties:
         clocks:
-          minItems: 2
-          maxItems: 2
+          maxItems: 4
 
         clock-names:
-          items:
-            - const: core
-            - const: pix0
+          maxItems: 4
 
         resets:
-          minItems: 1
           maxItems: 1
 
         reset-names:
-          items:
-            - const: core
-
-      required:
-        - resets
-        - reset-names
+          maxItems: 1
 
 additionalProperties: false
 
